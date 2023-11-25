@@ -3,7 +3,7 @@ use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 library UNISIM;
 use UNISIM.vcomponents.all;
-
+ 
 entity Scope_Project is
 	port(
 		clk:   in    std_logic;
