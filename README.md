@@ -1,4 +1,4 @@
-# FPGA-Oscilloscope-Project
+# FPGA-Oscilloscope-Project /n
 
 #• Stand-alone operation (no support from Matlab or other applications running on the host computer).
 #Done- • VGA display (other options possible such as direct connect flat panel display).
