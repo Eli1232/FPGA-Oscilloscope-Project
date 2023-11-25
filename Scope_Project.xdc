@@ -1,7 +1,7 @@
 # 12 MHz System Clock
 set_property -dict { PACKAGE_PIN M9    IOSTANDARD LVCMOS33 } [get_ports { clk }]; #IO_L13P_T2_MRCC_14 Sch=gclk
 create_clock -add -name sys_clk_pin -period 83.33 -waveform {0 41.66} [get_ports { clk }];
-
+ 
 # Pmod Header JA
 set_property -dict { PACKAGE_PIN J2    IOSTANDARD LVCMOS33 } [get_ports { red[0] }]; #IO_L14P_T2_SRCC_34 Sch=ja[1]
 set_property -dict { PACKAGE_PIN H3    IOSTANDARD LVCMOS33 } [get_ports { red[1] }]; #IO_L13N_T2_MRCC_34 Sch=ja[7]
