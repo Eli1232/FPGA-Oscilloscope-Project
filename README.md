@@ -1,4 +1,4 @@
 # FPGA-Oscilloscope-Project
 
-test \\
+test \
  test 2
