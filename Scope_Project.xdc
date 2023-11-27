@@ -59,5 +59,5 @@ set_property -dict { PACKAGE_PIN J11   IOSTANDARD LVCMOS33 } [get_ports { pio31 
 #set_property -dict { PACKAGE_PIN C1    IOSTANDARD LVCMOS33 } [get_ports { pio44 }]; #IO_L4P_T0_34 Sch=pio[44]
 set_property -dict { PACKAGE_PIN B3    IOSTANDARD LVCMOS33 } [get_ports { h_pos_cw }]; #IO_L3N_T0_DQS_34 Sch=pio[45]
 set_property -dict { PACKAGE_PIN B4    IOSTANDARD LVCMOS33 } [get_ports { h_pos_ccw }]; #IO_L3P_T0_DQS_34 Sch=pio[46] 
-set_property -dict { PACKAGE_PIN A3    IOSTANDARD LVCMOS33 } [get_ports { v_pos_cw }]; #IO_L1N_T0_34 Sch=pio[47]
-set_property -dict { PACKAGE_PIN A4    IOSTANDARD LVCMOS33 } [get_ports { v_pos_ccw }]; #IO_L1P_T0_34 Sch=pio[48]
+set_property -dict { PACKAGE_PIN A3    IOSTANDARD LVCMOS33 } [get_ports { v_enc_d }]; #IO_L1N_T0_34 Sch=pio[47]
+set_property -dict { PACKAGE_PIN A4    IOSTANDARD LVCMOS33 } [get_ports { v_enc_clk }]; #IO_L1P_T0_34 Sch=pio[48]

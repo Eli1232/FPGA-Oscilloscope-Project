@@ -18,8 +18,8 @@ entity Scope_Project is
 		vaux5_p: in  std_logic;
 		btn:     in  std_logic;
 		pio31:   out std_logic;
-		v_pos_cw: in std_logic;  --pin 47 encoder DT **check if these are the right direction
-		v_pos_ccw: in std_logic;   --pin 48 encoder CLK
+		v_enc_d: in std_logic;  --pin 47 encoder DT 
+		v_enc_clk: in std_logic;   --pin 48 encoder CLK
 		h_pos_cw: in std_logic;  --pin 45 encoder DT **check if these are the right direction
 		h_pos_ccw: in std_logic   --pin 46 encoder CLK
 	);
@@ -107,12 +107,16 @@ architecture arch of Scope_Project is
     signal scaled_hcount: unsigned(9 downto 0);
     signal scaled_vcount: unsigned(11 downto 0);
     
-    signal v_pos_cw_1: std_logic;
-    signal v_pos_cw_2: std_logic;
-    signal v_pos_cw_3: std_logic;
-    signal v_pos_ccw_1: std_logic;
-    signal v_pos_ccw_2: std_logic;
-    signal v_pos_ccw_3: std_logic;
+    signal v_enc_clk_1: std_logic;
+    signal v_enc_clk_2: std_logic;
+    signal v_enc_clk_3: std_logic;
+    signal v_enc_cw_cnt: unsigned(9 downto 0);
+    signal v_enc_ccw_cnt: unsigned(9 downto 0);
+    signal v_enc_cw_free: std_logic;
+    signal v_enc_ccw_free: std_logic;
+    signal v_enc_d_1: std_logic;
+    signal v_enc_d_2: std_logic;
+    signal v_enc_d_3: std_logic;
     signal v_off_plus: unsigned(11 downto 0);
     signal v_off_minus: unsigned(11 downto 0);
     
@@ -342,12 +346,12 @@ pio31<= pio_state;
  
     if hcount mod 3 = b"0000000000" then --every 3rd column, we want to draw a pixel of one of our 200 samples
         addra <= std_logic_vector(hcount/3); --we read the Nth number in ram
-        scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/9) + v_off_plus - v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
+        scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/9) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
         --and flip it so 3.3V is  pixel 0, which is the top of the screen
         if (vcount = scaled_vcount) then    --if the current row is the same value as the scaled version
             blank<='0';         -- don't blank, set the colors
             obj1_red <= b"11";
-            obj1_blu <= b"11";
+        --    obj1_blu <= b"11";
         else
             blank<='1';     --otherwise blank, no color
         end if;
@@ -469,30 +473,79 @@ pio31<= pio_state;
     end if;   --end if rdy is 1
 
 
---    --Vert position encoder
---    v_pos_cw_1 <= v_pos_cw;
---    v_pos_cw_2 <= v_pos_cw_1;
---    v_pos_cw_3 <= v_pos_cw_2;
+    --Vert position encoder
+    v_enc_d_1 <= v_enc_d;
+    v_enc_d_2 <= v_enc_d_1;
+    v_enc_d_3 <= v_enc_d_2;
     
---    v_pos_ccw_1 <= v_pos_ccw;
---    v_pos_ccw_2 <= v_pos_ccw_1;
---    v_pos_ccw_3 <= v_pos_ccw_2;
+    v_enc_clk_1 <= v_enc_clk;
+    v_enc_clk_2 <= v_enc_clk_1;
+    v_enc_clk_3 <= v_enc_clk_2;
     
---    if v_pos_cw_3 < v_pos_cw_2 then  --if rising edge
---        if v_pos_ccw_3 = '0' then
---            if v_off_minus = b"000000000000" then
---                v_off_plus <= v_off_plus + 1;
+    --saturation counter
+    
+    if v_enc_d_3 > v_enc_d_1 then  --if falling edge
+        v_enc_cw_free<= '1'; --flag allows for cw to be read
+        v_enc_ccw_free<= '1'; --flag allows for ccw to be read
+    end if;
+    
+--    if v_enc_clk_3 > v_enc_clk_1 then  --if falling edge
+--        v_enc_cw_free<= '1'; --flag allows for cw to be read
+--        v_enc_ccw_free<= '1'; --flag allows for ccw to be read
+--    end if;
+    
+    if (v_enc_clk_3='1') then --if clk is hi after d falls, start ccw counting
+        if v_enc_ccw_free = '1' then
+            if (v_enc_ccw_cnt < 300) then --if we are less than max count
+                v_enc_ccw_cnt<=v_enc_ccw_cnt+1;     --increment
+            else --if we hit max count
+              v_enc_ccw_cnt <= b"0000000000";       --reset both counters
+              v_enc_cw_cnt <= b"0000000000";
+              v_enc_ccw_free <= '0';                --reset both flags
+              v_enc_cw_free <= '0';
+                if v_off_plus = 0 then  -- if we don't have a positive to take away from
+                    v_off_minus <= v_off_minus + 1; --move down
+                else
+                    v_off_plus <= v_off_plus - 1;   --move less up
+                end if;
+            end if;
+        end if;
+    --elsif (v_enc_clk_3='0') then    --if clk is low after d falls, start cw counting
+    else
+        if v_enc_cw_free = '1' then
+            if (v_enc_cw_cnt < 300) then --if the button is being pressed, and we aren't at max, increase dbcount
+                v_enc_cw_cnt<=v_enc_cw_cnt+1;
+            else --if we hit max count
+              v_enc_cw_cnt <= b"0000000000";
+              v_enc_ccw_cnt <= b"0000000000";
+              v_enc_cw_free <= '0';
+              v_enc_ccw_free <= '0';
+                if v_off_minus = 0 then
+                    v_off_plus <= v_off_plus + 1; --move up
+                else
+                    v_off_minus <= v_off_minus - 1; --move less down
+                end if;
+            end if;
+        end if;
+    end if;
+    
+    
+    
+    
+--        if v_enc_clk_3 = '0' then --cw
+--            if v_off_minus = 0 then
+--                v_off_plus <= v_off_plus + 1; --move up
 --            else
---                v_off_minus <= v_off_minus - 1;
+--                v_off_minus <= v_off_minus - 1; --move less down
 --            end if;
 --        else
---            if v_off_plus = b"000000000000" then
---                v_off_minus <= v_off_minus + 1;
+--            if v_off_plus = 0 then  --ccw
+--                v_off_minus <= v_off_minus + 1; --move down
 --            else
---                v_off_plus <= v_off_plus - 1;
+--                v_off_plus <= v_off_plus - 1;   --move less up
 --            end if;
 --    end if; 	
---    end if;
+
 
 
 --    --Horiz position encoder
