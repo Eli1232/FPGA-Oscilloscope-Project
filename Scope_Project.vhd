@@ -20,8 +20,8 @@ entity Scope_Project is
 		pio31:   out std_logic;
 		v_enc_d: in std_logic;  --pin 47 encoder DT 
 		v_enc_clk: in std_logic;   --pin 48 encoder CLK
-		h_pos_cw: in std_logic;  --pin 45 encoder DT **check if these are the right direction
-		h_pos_ccw: in std_logic   --pin 46 encoder CLK
+		h_enc_d: in std_logic;  --pin 45 encoder DT **check if these are the right direction
+		h_enc_clk: in std_logic   --pin 46 encoder CLK
 	);
 end Scope_Project;
 
