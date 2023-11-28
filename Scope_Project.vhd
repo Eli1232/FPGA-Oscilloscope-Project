@@ -346,7 +346,7 @@ pio31<= pio_state;
 		end case;
 		
 	
-    --Ram buffering- read buffer logic 
+    --Ram buffering- read buffer logic
 
     if addra = b"0011000111"  then  --  = 199
         if trigcount >= b"0011000111" then -- =199
