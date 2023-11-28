@@ -16,7 +16,8 @@ entity Scope_Project is
 		vsync: out   std_logic;
 		vaux5_n: in  std_logic;
 		vaux5_p: in  std_logic;
-		btn:     in  std_logic;
+		btn:      in std_logic_vector(1 downto 0);
+		led:       out std_logic_vector(3 downto 0);
 		pio31:   out std_logic;
 		v_enc_d: in std_logic;  --pin 47 encoder DT 
 		v_enc_clk: in std_logic;   --pin 48 encoder CLK
@@ -107,6 +108,12 @@ architecture arch of Scope_Project is
     signal scaled_hcount: unsigned(9 downto 0);
     signal scaled_vcount: unsigned(11 downto 0);
     
+    signal vertical_gain: unsigned(6 downto 0):=to_unsigned(9,7); 
+    signal vertical_gain_index: unsigned(3 downto 0):=to_unsigned(0,4); --there can be 8 different gains
+	type gain_lookup_table is array (7 downto 0) of unsigned(6 downto 0);
+	signal gain : gain_lookup_table;
+
+    
     signal v_enc_clk_1: std_logic;
     signal v_enc_clk_2: std_logic;
     signal v_enc_clk_3: std_logic;
@@ -146,6 +153,8 @@ begin
 		dataa_i=>(others=>'0'),dataa_o=>dataa2,clkb_i=>clkfx,
 		web_i=>web2,addrb_i=>addrb2,datab_i=>datab_i_2,datab_o=>open); --mine
 		
+		gain <= (to_unsigned(1,7), to_unsigned(2,7), to_unsigned(3,7), to_unsigned(4,7), to_unsigned(9,7), to_unsigned(16,7), to_unsigned(32,7), to_unsigned(64,7)); --setting my gain
+
 		addrb <= std_logic_vector(uaddrb);
 	--	addrb1 <= std_logic_vector(uaddrb1);
 	--	addrb2 <= std_logic_vector(uaddrb2);
@@ -575,6 +584,22 @@ pio31<= pio_state;
 --            end if;
 --    end if; 	
 --    end if;
+    if (btn(0)='0') then
+            led(0) <= '1';
+            if (vertical_gain_index > 0) then
+                led(1) <= '1';
+                vertical_gain_index<=vertical_gain_index-1;
+                vertical_gain<=gain(to_integer(vertical_gain_index));
+            end if;
+    elsif (btn(1)='0') then
+            led(2)<='1';
+            if (vertical_gain_index < 8) then
+            led(3)<='1';
+                vertical_gain_index<=vertical_gain_index+1;
+                vertical_gain<=gain(to_integer(vertical_gain_index));
+		end if;
+	end if;
+
 
 
 
