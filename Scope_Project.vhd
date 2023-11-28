@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 library UNISIM; 
-use UNISIM.vcomponents.all;  
+use UNISIM.vcomponents.all;  --hi Eli
   
 entity Scope_Project is
 	port(
@@ -16,8 +16,7 @@ entity Scope_Project is
 		vsync: out   std_logic;
 		vaux5_n: in  std_logic;
 		vaux5_p: in  std_logic;
-		btn0:     in  std_logic;
-		btn1:	  in  std_logic;
+		btn:     in  std_logic;
 		pio31:   out std_logic;
 		v_enc_d: in std_logic;  --pin 47 encoder DT 
 		v_enc_clk: in std_logic;   --pin 48 encoder CLK
@@ -107,23 +106,7 @@ architecture arch of Scope_Project is
     
     signal scaled_hcount: unsigned(9 downto 0);
     signal scaled_vcount: unsigned(11 downto 0);
-
-	--Nathan's Signals
-	signal vertical_gain: unsigned(4 downto 0):=to_unsigned(9,5); 
-    signal vertical_gain_index: unsigned(3 downto 0):=to_unsigned(0,4); --there can be 8 different gains
-	type gain_lookup_table is array (0 to 7) of integer;
-	constant gain_table: gain_lookup_table := (
-		2**0,  -- 2^0 = 1
-		2**1,  -- 2^1 = 2
-		2**2,  -- 2^2 = 4
-		2**3,  -- 2^3 = 8
-		2**4,  -- 2^4 = 16
-		2**5,  -- 2^5 = 32
-		2**6,  -- 2^6 = 64
-		2**7   -- 2^7 = 128
-	);
-
-
+    
     signal v_enc_clk_1: std_logic;
     signal v_enc_clk_2: std_logic;
     signal v_enc_clk_3: std_logic;
@@ -264,7 +247,7 @@ pio31<= pio_state;
 	--     490 to 491: Vertical sync (active low)
 	------------------------------------------------------------------
 	--process(clkfx)
-	process(clkfx, uaddrb, pio_count, datab, btn0, btn1, thrsh, trigcount, trigflag, sr0, sr1, sr2)
+	process(clkfx, uaddrb, pio_count, datab, btn, thrsh, trigcount, trigflag, sr0, sr1, sr2)
 	begin
 		if rising_edge(clkfx) then --if the vga clock is rising 
 			-- Pixel position counters
@@ -363,7 +346,7 @@ pio31<= pio_state;
  
     if hcount mod 3 = b"0000000000" then --every 3rd column, we want to draw a pixel of one of our 200 samples
         addra <= std_logic_vector(hcount/3); --we read the Nth number in ram
-        scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/vertical_gain) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
+        scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/9) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
         --and flip it so 3.3V is  pixel 0, which is the top of the screen
         if (vcount = scaled_vcount) then    --if the current row is the same value as the scaled version
             blank<='0';         -- don't blank, set the colors
@@ -592,18 +575,6 @@ pio31<= pio_state;
 --            end if;
 --    end if; 	
 --    end if;
-
-	if (btn0='0') then
-		if (vertical_gain_index > 0) then
-			vertical_gain_index<=vertical_gain_index-1;
-			vertical_gain<=gain_lookup_table[vertical_gain_index];
-		end if;
-	else if (btn1='1') then
-		if (vertical_gain_index < 8) then
-			vertical_gain_index<=vertical_gain_index+1;
-			vertical_gain<=gain_lookup_table[vertical_gain_index];
-		end if;
-	end if;
 
 
 
