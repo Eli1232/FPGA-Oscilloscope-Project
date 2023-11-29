@@ -6,5 +6,5 @@
 - [ ] Vertical Gain- Nathan 
 - [ ] Horizontal Position- Eli 
 - [ ] Horizontal Gain- Nathan 
-- [ ] Trigger level
+- [ ] Trigger level- Eli
 - [x] Triple Buffering
