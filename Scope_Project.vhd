@@ -56,7 +56,7 @@ architecture arch of Scope_Project is
 		);
 	end component;
 	
-		constant samples: natural:=200;
+	constant samples: natural:=639;
 	signal fclk:  std_logic;
 	signal rdy:   std_logic;
 	signal thrsh: std_logic_vector(11 downto 0):= b"101110111000"; --set to 3000 to before we want to adjust it
@@ -146,7 +146,7 @@ architecture arch of Scope_Project is
 --    (vcount<=to_unsigned(340,10)) then
 	
 begin
-	--cmt: lab05_cmt port map(clk_i=>clk,clk_o=>fclk);
+--	cmt1: lab05_cmt port map(clk_i=>clk,clk_o=>fclk);
 	adc: lab05_adc port map(clk_i=>clkfx,vaux5n_i=>vaux5_n,vaux5p_i=>vaux5_p,
 		rdy_o=>rdy,data_o=>datab(11 downto 0));
 	ram0: lab05_ram port map(clka_i=>clkfx,wea_i=>'0',addra_i=>addra0,
@@ -344,8 +344,8 @@ pio31<= pio_state;
 	
     --Ram buffering- read buffer logic 
 
-    if addra = b"0011000111"  then  --  = 199
-        if trigcount >= b"0011000111" then -- =199
+    if addra = std_logic_vector(to_unsigned(samples,10)) then  --  = 639
+        if trigcount >= samples then -- =639
             re_buf <= wr_buf;
         else
             re_buf <= (wr_buf - 1) mod 3;
@@ -357,20 +357,17 @@ pio31<= pio_state;
     
     --VGA- drawing
  
-    if hcount mod 3 = b"0000000000" then --every 3rd column, we want to draw a pixel of one of our 200 samples
-        addra <= std_logic_vector(hcount/3); --we read the Nth number in ram
-        scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/9) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
-        --and flip it so 3.3V is  pixel 0, which is the top of the screen
-        if (vcount = scaled_vcount) then    --if the current row is the same value as the scaled version
-            blank<='0';         -- don't blank, set the colors
-            obj1_red <= b"11";
-        --    obj1_blu <= b"11";
-        else
-            blank<='1';     --otherwise blank, no color
-        end if;
-    else 
+    addra <= std_logic_vector(hcount); --we read the Nth number in ram
+    scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/9) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
+    --and flip it so 3.3V is  pixel 0, which is the top of the screen
+    if (vcount = scaled_vcount) then    --if the current row is the same value as the scaled version
+        blank<='0';         -- don't blank, set the colors
+        obj1_red <= b"11";
+    --    obj1_blu <= b"11";
+    else
         blank<='1';     --otherwise blank, no color
-    end if;
+    end if; 
+
 --        vga_draw_cnt <= vga_draw_cnt + 1;
 	
 	
@@ -474,7 +471,7 @@ pio31<= pio_state;
        
        ----Ram buffering- write buffer logic
        
-       if(trigcount >= 199) then --Collect 200 samples, then rollover the count and reset the flag
+       if(trigcount = samples) then --Collect 200 samples, then rollover the count and reset the flag
             trigflag <= '0';
             trigcount <= b"00000000";
             if re_buf = (wr_buf + 1)mod 3 then
@@ -592,7 +589,7 @@ pio31<= pio_state;
               h_enc_ccw_free <= '0';                --reset both flags
               h_enc_cw_free <= '0';
               
-              if post_trig < 199 then
+              if post_trig < samples then
                   pre_trig <= pre_trig - 1;
                   post_trig <= post_trig + 1;
               else        --if we hit max, then don't move horiz
@@ -613,7 +610,7 @@ pio31<= pio_state;
               h_enc_cw_free <= '0';
               h_enc_ccw_free <= '0';
             
-              if pre_trig < 199 then
+              if pre_trig < samples then
                   pre_trig <= pre_trig + 1;
                   post_trig <= post_trig - 1;
               else --if we hit max, then don't move horiz
