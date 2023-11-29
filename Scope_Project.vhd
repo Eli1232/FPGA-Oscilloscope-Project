@@ -377,36 +377,7 @@ pio31<= pio_state;
 		end if; --end of frame
 		
         
-        --ADC- writing values to RAM NORMAL
-            if (rdy = '1') then --if the ADC has a value to send
-                web <= '1';		--enable writing to RAMB
-                if ((trigcount = 0)) then --handle rollover addresses 0-199  
-                    uaddrb <= b"0000000000";
-                else
-                    uaddrb<= uaddrb + 1; --if not at max value, increment
-                end if;
-            else
-                uaddrb<= uaddrb; --if there is no new ADC value, write to the old address
-                web <= '1';
-            end if;
-        
-        
---                --ADC- writing values to RAM with horizontal shift adjustment
---            if (rdy = '1') then --if the ADC has a value to send
---                web <= '1';		--enable writing to RAMB
---                if ((trigflag = '1' and trigcount = 0)) then --handle rollover addresses 0-199  **normal one
---                    uaddrb <= b"0000000000";
---                else
---                    uaddrb<= uaddrb + 1; --if not at max value, increment
---                end if;
---            else
---                uaddrb<= uaddrb; --if there is no new ADC value, write to the old address
---                web <= '1';
---            end if;
-        
-        
-        
-        
+
         
         --drive neighboring pin in square wave
         if(pio_count = 1039) then --if it rolls over
@@ -420,55 +391,22 @@ pio31<= pio_state;
             pio_count<= pio_count + 1;
          end if;
          
-     
-     
-     
-         
-         
---  --triggering normal version
-----   if(rdy = '1' and btn = '1') then
---     if rdy = '1' then
---       sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
---       sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
---       if(unsigned(sr1) <= unsigned(thrsh) and unsigned(sr0) >= unsigned(thrsh)) then --If signal rose above thrsh, then trigger
---            trigflag <= '1'; 
---       else
---            trigflag <= trigflag;
---       end if;
---       if(trigflag = '1') then
-----           if(trigcount = 0) then --Set the ram address to 0 so it's on the left of the screen
-----                uaddrb <= b"0000000000";
-----           end if;
---           sr2 <= sr1;
---           sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
---           trigcount <= trigcount + 1;
---       end if;
-       
        
          --triggering with horizontal shift
         if rdy = '1' then
+            web <= '1';		--enable writing to RAMB
+            uaddrb <= trigcount;
             sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
             sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
-            if trigcount < pre_trig then 
-                sr2 <= sr1;
-                sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
-                trigcount <= trigcount + 1;
-            elsif(unsigned(sr1) <= unsigned(thrsh) and unsigned(sr0) >= unsigned(thrsh)) then --If signal rose above thrsh, then trigger
-                trigflag <= '1'; 
+            
+            if trigcount < pre_trig or (unsigned(sr1) <= unsigned(thrsh) and unsigned(sr0) >= unsigned(thrsh)) then
+                trigflag <= '1';
+            elsif trigcount = pre_trig then
+                trigflag <= '0'; 
             else 
                 trigflag <= trigflag;         
             end if;
        if(trigflag = '1') then
---           if(trigcount = 0) then --Set the ram address to 0 so it's on the left of the screen
---                uaddrb <= b"0000000000";
---           end if;
-           sr2 <= sr1;
-           sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
-           trigcount <= trigcount + 1;
-       end if;    
-       
-       
-       
        ----Ram buffering- write buffer logic
        
        if(trigcount = samples) then --Collect 200 samples, then rollover the count and reset the flag
@@ -479,7 +417,18 @@ pio31<= pio_state;
             else
                 wr_buf <= (wr_buf + 1)mod 3;
             end if;
+       else --if not at max
+
+
+           sr2 <= sr1;
+           sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
+           trigcount <= trigcount + 1;
        end if;
+       end if;
+       
+    else
+        uaddrb<= uaddrb; --if there is no new ADC value, write to the old address
+        web <= '0';
     end if;   --end if rdy is 1
 
 
