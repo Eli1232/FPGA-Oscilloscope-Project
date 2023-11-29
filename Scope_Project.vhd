@@ -125,6 +125,19 @@ architecture arch of Scope_Project is
     signal pre_trig: unsigned(7 downto 0):=b"00000000"; --how much data you want to show before the trigger
     signal post_trig: unsigned(7 downto 0):=b"11000111"; --start at 199, how much data you want to show after the trigger
     
+    signal h_enc_clk_1: std_logic;
+    signal h_enc_clk_2: std_logic;
+    signal h_enc_clk_3: std_logic;
+    signal h_enc_cw_cnt: unsigned(9 downto 0);
+    signal h_enc_ccw_cnt: unsigned(9 downto 0);
+    signal h_enc_cw_free: std_logic;
+    signal h_enc_ccw_free: std_logic;
+    signal h_enc_d_1: std_logic;
+    signal h_enc_d_2: std_logic;
+    signal h_enc_d_3: std_logic;
+    
+    
+    
   --  signal vga_draw_cnt: unsigned(7 downto 0);
 	
 	--    if (hcount>=to_unsigned(220,10)) and
@@ -415,39 +428,16 @@ pio31<= pio_state;
      
          
          
-  --triggering normal version
---   if(rdy = '1' and btn = '1') then
-     if rdy = '1' then
-       sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
-       sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
-       if(unsigned(sr1) <= unsigned(thrsh) and unsigned(sr0) >= unsigned(thrsh)) then --If signal rose above thrsh, then trigger
-            trigflag <= '1'; 
-       else
-            trigflag <= trigflag;
-       end if;
-       if(trigflag = '1') then
---           if(trigcount = 0) then --Set the ram address to 0 so it's on the left of the screen
---                uaddrb <= b"0000000000";
---           end if;
-           sr2 <= sr1;
-           sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
-           trigcount <= trigcount + 1;
-       end if;
-       
-       
---         --triggering with horizontal shift
---        if rdy = '1' then
---            sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
---            sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
---            if trigcount < pre_trig then 
---                sr2 <= sr1;
---                sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
---                trigcount <= trigcount + 1;
---            elsif(unsigned(sr1) <= unsigned(thrsh) and unsigned(sr0) >= unsigned(thrsh)) then --If signal rose above thrsh, then trigger
---                trigflag <= '1'; 
---            else 
---                trigflag <= trigflag;         
---            end if;
+--  --triggering normal version
+----   if(rdy = '1' and btn = '1') then
+--     if rdy = '1' then
+--       sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
+--       sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
+--       if(unsigned(sr1) <= unsigned(thrsh) and unsigned(sr0) >= unsigned(thrsh)) then --If signal rose above thrsh, then trigger
+--            trigflag <= '1'; 
+--       else
+--            trigflag <= trigflag;
+--       end if;
 --       if(trigflag = '1') then
 ----           if(trigcount = 0) then --Set the ram address to 0 so it's on the left of the screen
 ----                uaddrb <= b"0000000000";
@@ -455,7 +445,30 @@ pio31<= pio_state;
 --           sr2 <= sr1;
 --           sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
 --           trigcount <= trigcount + 1;
---       end if;    
+--       end if;
+       
+       
+         --triggering with horizontal shift
+        if rdy = '1' then
+            sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
+            sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
+            if trigcount < pre_trig then 
+                sr2 <= sr1;
+                sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
+                trigcount <= trigcount + 1;
+            elsif(unsigned(sr1) <= unsigned(thrsh) and unsigned(sr0) >= unsigned(thrsh)) then --If signal rose above thrsh, then trigger
+                trigflag <= '1'; 
+            else 
+                trigflag <= trigflag;         
+            end if;
+       if(trigflag = '1') then
+--           if(trigcount = 0) then --Set the ram address to 0 so it's on the left of the screen
+--                uaddrb <= b"0000000000";
+--           end if;
+           sr2 <= sr1;
+           sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
+           trigcount <= trigcount + 1;
+       end if;    
        
        
        
@@ -548,15 +561,71 @@ pio31<= pio_state;
 
 
 
---    --Horiz position encoder
---    --**********need to change all these variables
-----    v_pos_cw_1 <= v_pos_cw;
-----    v_pos_cw_2 <= v_pos_cw_1;
-----    v_pos_cw_3 <= v_pos_cw_2;
+    --Horiz position encoder
+    h_enc_d_1 <= h_enc_d;
+    h_enc_d_2 <= h_enc_d_1;
+    h_enc_d_3 <= h_enc_d_2;
     
-----    v_pos_ccw_1 <= v_pos_ccw;
-----    v_pos_ccw_2 <= v_pos_ccw_1;
-----    v_pos_ccw_3 <= v_pos_ccw_2;
+    h_enc_clk_1 <= h_enc_clk;
+    h_enc_clk_2 <= h_enc_clk_1;
+    h_enc_clk_3 <= h_enc_clk_2;
+    
+        --saturation counter
+    
+    if h_enc_d_3 > h_enc_d_1 then  --if falling edge
+        h_enc_cw_free<= '1'; --flag allows for cw to be read
+        h_enc_ccw_free<= '1'; --flag allows for ccw to be read
+    end if;
+    
+--    if v_enc_clk_3 > v_enc_clk_1 then  --if falling edge
+--        v_enc_cw_free<= '1'; --flag allows for cw to be read
+--        v_enc_ccw_free<= '1'; --flag allows for ccw to be read
+--    end if;
+    
+    if (h_enc_clk_3='1') then --if clk is hi after d falls, start ccw counting
+        if h_enc_ccw_free = '1' then
+            if (h_enc_ccw_cnt < 300) then --if we are less than max count
+                h_enc_ccw_cnt<=h_enc_ccw_cnt+1;     --increment
+            else --if we hit max count
+              h_enc_ccw_cnt <= b"0000000000";       --reset both counters
+              h_enc_cw_cnt <= b"0000000000";
+              h_enc_ccw_free <= '0';                --reset both flags
+              h_enc_cw_free <= '0';
+              
+              if post_trig < 199 then
+                  pre_trig <= pre_trig - 1;
+                  post_trig <= post_trig + 1;
+              else        --if we hit max, then don't move horiz
+                  pre_trig <= pre_trig;
+                  post_trig <= post_trig;
+              end if;
+              
+            end if;
+        end if;
+    --elsif (v_enc_clk_3='0') then    --if clk is low after d falls, start cw counting
+    else
+        if h_enc_cw_free = '1' then
+            if (h_enc_cw_cnt < 300) then --if the button is being pressed, and we aren't at max, increase dbcount
+                h_enc_cw_cnt<=h_enc_cw_cnt+1;
+            else --if we hit max count
+              h_enc_cw_cnt <= b"0000000000";
+              h_enc_ccw_cnt <= b"0000000000";
+              h_enc_cw_free <= '0';
+              h_enc_ccw_free <= '0';
+            
+              if pre_trig < 199 then
+                  pre_trig <= pre_trig + 1;
+                  post_trig <= post_trig - 1;
+              else --if we hit max, then don't move horiz
+                  pre_trig <= pre_trig;
+                  post_trig <= post_trig;
+              end if;
+
+
+            end if;
+        end if;
+    end if;
+    
     
 --    if v_pos_cw_3 < v_pos_cw_2 then  --if rising edge
 --        if v_pos_ccw_3 = '0' then --if CW?
@@ -575,6 +644,7 @@ pio31<= pio_state;
 --            end if;
 --    end if; 	
 --    end if;
+
 
 
 
