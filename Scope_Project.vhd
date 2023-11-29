@@ -89,7 +89,7 @@ architecture arch of Scope_Project is
 	signal datab_i_1: std_logic_vector(35 downto 0); --mine
 	signal datab_i_2: std_logic_vector(35 downto 0); --mine
 	signal trigflag: std_logic; --mine
-	signal trigcount: unsigned(7 downto 0):=b"00000000"; --mine
+	signal trigcount: unsigned(9 downto 0):=b"0000000000"; --mine
 	
 	signal re_buf: unsigned(1 downto 0);
 	signal wr_buf: unsigned(1 downto 0);
@@ -122,8 +122,8 @@ architecture arch of Scope_Project is
     
     
     --trigcount: what trigger index you're at
-    signal pre_trig: unsigned(7 downto 0):=b"00000000"; --how much data you want to show before the trigger
-    signal post_trig: unsigned(7 downto 0):=b"11000111"; --start at 199, how much data you want to show after the trigger
+    signal pre_trig: unsigned(9 downto 0):=b"0000000000"; --how much data you want to show before the trigger
+    signal post_trig: unsigned(9 downto 0):=b"1001111111"; --start at 639, how much data you want to show after the trigger
     
     signal h_enc_clk_1: std_logic;
     signal h_enc_clk_2: std_logic;
@@ -473,7 +473,7 @@ pio31<= pio_state;
        
        if(trigcount = samples) then --Collect 200 samples, then rollover the count and reset the flag
             trigflag <= '0';
-            trigcount <= b"00000000";
+            trigcount <= b"0000000000";
             if re_buf = (wr_buf + 1)mod 3 then
                 wr_buf <= (wr_buf + 2)mod 3;
             else
