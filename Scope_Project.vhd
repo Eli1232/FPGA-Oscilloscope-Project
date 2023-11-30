@@ -58,7 +58,7 @@ architecture arch of Scope_Project is
 	constant samples: natural:=639;
 	signal fclk:  std_logic;
 	signal rdy:   std_logic;
-	signal thrsh: std_logic_vector(11 downto 0):= b"101110111000"; --set to 3000 to before we want to adjust it
+	signal thrsh: std_logic_vector(11 downto 0); --set to 3000 to before we want to adjust it
 	signal addra: std_logic_vector(9 downto 0);
 	signal addra0: std_logic_vector(9 downto 0);
 	signal addra1: std_logic_vector(9 downto 0);
@@ -132,6 +132,11 @@ architecture arch of Scope_Project is
     signal enc_b_1: std_logic;
     signal enc_b_2: std_logic;
     signal enc_b_3: std_logic;
+    
+    signal thrsh_lvl: unsigned(11 downto 0):= b"101110111000"; --set to 3000 to before we want to adjust it
+    signal scaled_thrsh: unsigned(9 downto 0);
+    
+    
 	
 begin
 --	cmt1: lab05_cmt port map(clk_i=>clk,clk_o=>fclk);
@@ -345,10 +350,12 @@ pio31<= pio_state;
     
     --VGA- drawing
  
+    scaled_thrsh <= 480 - (thrsh_lvl/9);
+ 
     addra <= std_logic_vector(hcount); --we read the Nth number in ram
     scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/9) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
     --and flip it so 3.3V is  pixel 0, which is the top of the screen
-    if (vcount = scaled_vcount) then    --if the current row is the same value as the scaled version
+    if (vcount = scaled_vcount) or ((vcount = scaled_thrsh) and (v_enc_cw_free = '1' or v_enc_ccw_free = '1')) then    --if the current row is the same value as the scaled version
         blank<='0';         -- don't blank, set the colors
         obj1_red <= b"11";
     --    obj1_blu <= b"11";
@@ -387,7 +394,7 @@ pio31<= pio_state;
             sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
             sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
             
-            if trigcount < pre_trig or (unsigned(sr1) <= unsigned(thrsh) and unsigned(sr0) >= unsigned(thrsh)) then
+            if trigcount < pre_trig or (unsigned(sr1) <= thrsh_lvl and unsigned(sr0) >= thrsh_lvl) then
                 trigflag <= '1';
             elsif trigcount = pre_trig then
                 trigflag <= '0'; 
@@ -441,7 +448,7 @@ pio31<= pio_state;
 --        v_enc_ccw_free<= '1'; --flag allows for ccw to be read
 --    end if;
     
-    if (v_enc_clk_3='1') then --if clk is hi after d falls, start ccw counting
+    if (v_enc_clk_3='1') then --if clk is hi after d falls, start CCW counting
         if v_enc_ccw_free = '1' then
             if (v_enc_ccw_cnt < 300) then --if we are less than max count
                 v_enc_ccw_cnt<=v_enc_ccw_cnt+1;     --increment
@@ -468,6 +475,11 @@ pio31<= pio_state;
                       post_trig <= post_trig;
                   end if;
                 when S2=>   --trigger position
+                    if thrsh_lvl > 0 then
+                        thrsh_lvl <= thrsh_lvl - 1;
+                    else
+                        thrsh_lvl <= thrsh_lvl;
+                    end if;
               end case;
                 
                 
@@ -478,7 +490,7 @@ pio31<= pio_state;
     --elsif (v_enc_clk_3='0') then    --if clk is low after d falls, start cw counting
     else
         if v_enc_cw_free = '1' then
-            if (v_enc_cw_cnt < 300) then --if the button is being pressed, and we aren't at max, increase dbcount
+            if (v_enc_cw_cnt < 300) then --if the button is being pressed, and we aren't at max, increase dbcount CW counting
                 v_enc_cw_cnt<=v_enc_cw_cnt+1;
             else --if we hit max count
               v_enc_cw_cnt <= b"0000000000";
@@ -503,6 +515,11 @@ pio31<= pio_state;
                       post_trig <= post_trig;
                   end if;
                 when S2=>   --trigger position
+                    if thrsh_lvl < 4095 then
+                        thrsh_lvl <= thrsh_lvl + 1;
+                    else
+                        thrsh_lvl <= thrsh_lvl;
+                    end if;
               end case;
               
               
@@ -528,6 +545,7 @@ if enc_b_3 = '0' then
   end case;
 end if;
 
+--thrsh_lvl <= unsigned(thrsh);
 
 end if; --end of rising edge
 
