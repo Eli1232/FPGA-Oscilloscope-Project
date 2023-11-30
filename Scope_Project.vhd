@@ -20,8 +20,7 @@ entity Scope_Project is
 		pio31:   out std_logic;
 		v_enc_d: in std_logic;  --pin 47 encoder DT 
 		v_enc_clk: in std_logic;   --pin 48 encoder CLK
-		h_enc_d: in std_logic;  --pin 45 encoder DT **check if these are the right direction
-		h_enc_clk: in std_logic   --pin 46 encoder CLK
+		enc_btn: in std_logic   --pin 46 encoder CLK
 	);
 end Scope_Project;
 
@@ -125,25 +124,14 @@ architecture arch of Scope_Project is
     signal pre_trig: unsigned(9 downto 0):=b"0000000000"; --how much data you want to show before the trigger
     signal post_trig: unsigned(9 downto 0):=b"1001111111"; --start at 639, how much data you want to show after the trigger
     
-    signal h_enc_clk_1: std_logic;
-    signal h_enc_clk_2: std_logic;
-    signal h_enc_clk_3: std_logic;
-    signal h_enc_cw_cnt: unsigned(9 downto 0);
-    signal h_enc_ccw_cnt: unsigned(9 downto 0);
-    signal h_enc_cw_free: std_logic;
-    signal h_enc_ccw_free: std_logic;
-    signal h_enc_d_1: std_logic;
-    signal h_enc_d_2: std_logic;
-    signal h_enc_d_3: std_logic;
     
-    
-    
-  --  signal vga_draw_cnt: unsigned(7 downto 0);
 	
-	--    if (hcount>=to_unsigned(220,10)) and
---    (hcount<=to_unsigned(420,10)) and 
---    (vcount>=to_unsigned(140,10)) and 
---    (vcount<=to_unsigned(340,10)) then
+	type FSM_Type is (S0, S1, S2); --mine
+	signal FSM_enc: FSM_type:= S0;
+	signal enc_b_0: std_logic;
+    signal enc_b_1: std_logic;
+    signal enc_b_2: std_logic;
+    signal enc_b_3: std_logic;
 	
 begin
 --	cmt1: lab05_cmt port map(clk_i=>clk,clk_o=>fclk);
@@ -462,11 +450,29 @@ pio31<= pio_state;
               v_enc_cw_cnt <= b"0000000000";
               v_enc_ccw_free <= '0';                --reset both flags
               v_enc_cw_free <= '0';
+              
+              
+              case FSM_enc is
+                when S0=>       --vertical position
                 if v_off_plus = 0 then  -- if we don't have a positive to take away from
                     v_off_minus <= v_off_minus + 1; --move down
                 else
                     v_off_plus <= v_off_plus - 1;   --move less up
                 end if;
+                when S1=>   --horizontal position
+                   if post_trig < samples then
+                      pre_trig <= pre_trig - 1;
+                      post_trig <= post_trig + 1;
+                  else        --if we hit max, then don't move horiz
+                      pre_trig <= pre_trig;
+                      post_trig <= post_trig;
+                  end if;
+                when S2=>   --trigger position
+              end case;
+                
+                
+                
+                
             end if;
         end if;
     --elsif (v_enc_clk_3='0') then    --if clk is low after d falls, start cw counting
@@ -479,119 +485,48 @@ pio31<= pio_state;
               v_enc_ccw_cnt <= b"0000000000";
               v_enc_cw_free <= '0';
               v_enc_ccw_free <= '0';
+              
+              
+              case FSM_enc is
+                when S0=>       --vertical position
                 if v_off_minus = 0 then
                     v_off_plus <= v_off_plus + 1; --move up
                 else
                     v_off_minus <= v_off_minus - 1; --move less down
                 end if;
-            end if;
-        end if;
-    end if;
-    
-    
-    
-    
---        if v_enc_clk_3 = '0' then --cw
---            if v_off_minus = 0 then
---                v_off_plus <= v_off_plus + 1; --move up
---            else
---                v_off_minus <= v_off_minus - 1; --move less down
---            end if;
---        else
---            if v_off_plus = 0 then  --ccw
---                v_off_minus <= v_off_minus + 1; --move down
---            else
---                v_off_plus <= v_off_plus - 1;   --move less up
---            end if;
---    end if; 	
-
-
-
-    --Horiz position encoder
-    h_enc_d_1 <= h_enc_d;
-    h_enc_d_2 <= h_enc_d_1;
-    h_enc_d_3 <= h_enc_d_2;
-    
-    h_enc_clk_1 <= h_enc_clk;
-    h_enc_clk_2 <= h_enc_clk_1;
-    h_enc_clk_3 <= h_enc_clk_2;
-    
-        --saturation counter
-    
-    if h_enc_d_3 > h_enc_d_1 then  --if falling edge
-        h_enc_cw_free<= '1'; --flag allows for cw to be read
-        h_enc_ccw_free<= '1'; --flag allows for ccw to be read
-    end if;
-    
---    if v_enc_clk_3 > v_enc_clk_1 then  --if falling edge
---        v_enc_cw_free<= '1'; --flag allows for cw to be read
---        v_enc_ccw_free<= '1'; --flag allows for ccw to be read
---    end if;
-    
-    if (h_enc_clk_3='1') then --if clk is hi after d falls, start ccw counting
-        if h_enc_ccw_free = '1' then
-            if (h_enc_ccw_cnt < 300) then --if we are less than max count
-                h_enc_ccw_cnt<=h_enc_ccw_cnt+1;     --increment
-            else --if we hit max count
-              h_enc_ccw_cnt <= b"0000000000";       --reset both counters
-              h_enc_cw_cnt <= b"0000000000";
-              h_enc_ccw_free <= '0';                --reset both flags
-              h_enc_cw_free <= '0';
+                when S1=>   --horizontal position
+                  if pre_trig < samples then
+                      pre_trig <= pre_trig + 1;
+                      post_trig <= post_trig - 1;
+                  else --if we hit max, then don't move horiz
+                      pre_trig <= pre_trig;
+                      post_trig <= post_trig;
+                  end if;
+                when S2=>   --trigger position
+              end case;
               
-              if post_trig < samples then
-                  pre_trig <= pre_trig - 1;
-                  post_trig <= post_trig + 1;
-              else        --if we hit max, then don't move horiz
-                  pre_trig <= pre_trig;
-                  post_trig <= post_trig;
-              end if;
               
             end if;
         end if;
-    --elsif (v_enc_clk_3='0') then    --if clk is low after d falls, start cw counting
-    else
-        if h_enc_cw_free = '1' then
-            if (h_enc_cw_cnt < 300) then --if the button is being pressed, and we aren't at max, increase dbcount
-                h_enc_cw_cnt<=h_enc_cw_cnt+1;
-            else --if we hit max count
-              h_enc_cw_cnt <= b"0000000000";
-              h_enc_ccw_cnt <= b"0000000000";
-              h_enc_cw_free <= '0';
-              h_enc_ccw_free <= '0';
-            
-              if pre_trig < samples then
-                  pre_trig <= pre_trig + 1;
-                  post_trig <= post_trig - 1;
-              else --if we hit max, then don't move horiz
-                  pre_trig <= pre_trig;
-                  post_trig <= post_trig;
-              end if;
-
-
-            end if;
-        end if;
     end if;
-    
-    
---    if v_pos_cw_3 < v_pos_cw_2 then  --if rising edge
---        if v_pos_ccw_3 = '0' then --if CW?
---            if pre_trig < 199 then
---                pre_trig <= pre_trig + 1;
---                post_trig <= post_trig - 1;
---            else
---                null;
---            end if;
---        else
---            if post_trig < 199 then
---                pre_trig <= pre_trig - 1;
---                post_trig <= post_trig + 1;
---            else
---                null;
---            end if;
---    end if; 	
---    end if;
 
 
+--Encoder Button Stuff
+enc_b_0 <= enc_btn;
+enc_b_1 <= enc_b_0;
+enc_b_2 <= enc_b_1;
+enc_b_3 <= enc_b_2;
+
+if enc_b_3 = '0' then
+  case FSM_enc is
+    when S0=>       --vertical position
+        FSM_enc <= S1;
+    when S1=>   --horizontal position
+        FSM_enc <= S2;
+    when S2=>   --trigger position
+        FSM_enc <= S0;
+  end case;
+end if;
 
 
 end if; --end of rising edge
