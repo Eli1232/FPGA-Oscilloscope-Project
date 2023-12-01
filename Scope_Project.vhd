@@ -568,12 +568,10 @@ pio31<= pio_state;
         end if;
         if (btn0_2='1') then
             if(btn0_free='1') then
-               led(2)<='1';
                if (vertical_gain_index > 0) then
                    vertical_gain_index<=vertical_gain_index-1;
                    vertical_gain<=gain(to_integer(vertical_gain_index));
                end if;
-               btn0_free<='0';
             end if;
         else
             led(2)<='0';
@@ -582,7 +580,6 @@ pio31<= pio_state;
     
     if (btn1_2='1') then
         if(btn1_free='1') then
-            led(3)<='1';
             if (vertical_gain_index < 7) then
                 vertical_gain_index<=vertical_gain_index+1;
                 vertical_gain<=gain(to_integer(vertical_gain_index));
@@ -590,22 +587,25 @@ pio31<= pio_state;
 		    btn1_free<='0';
 	    end if;
 	else
-	   led(3)<='0';
 	   btn1_free<='1';
 	end if;
 	--test with LED lights
-    if (vertical_gain_index=to_unsigned(7,4)) then
-            led(0)<='1';
-            led(1)<='1';
-        elsif (vertical_gain_index=to_unsigned(6,4)) then
-            led(0)<='0';
-            led(1)<='1';
-        elsif (vertical_gain_index=to_unsigned(1,4)) then
-            led(0)<='1';
-            led(1)<='0';
-        elsif (vertical_gain_index=to_unsigned(0,4)) then
-            led(0)<='0';
-            led(1)<='0';
+    if (vertical_gain_index = to_unsigned(0, 4)) then
+        led <= "0000"; -- Binary representation of 0
+    elsif (vertical_gain_index = to_unsigned(1, 4)) then
+        led <= "0001"; -- Binary representation of 1
+    elsif (vertical_gain_index = to_unsigned(2, 4)) then
+        led <= "0010"; -- Binary representation of 2
+    elsif (vertical_gain_index = to_unsigned(3, 4)) then
+        led <= "0011"; -- Binary representation of 3
+    elsif (vertical_gain_index = to_unsigned(4, 4)) then
+        led <= "0100"; -- Binary representation of 4
+    elsif (vertical_gain_index = to_unsigned(5, 4)) then
+        led <= "0101"; -- Binary representation of 5
+    elsif (vertical_gain_index = to_unsigned(6, 4)) then
+        led <= "0110"; -- Binary representation of 6
+    elsif (vertical_gain_index = to_unsigned(7, 4)) then
+        led <= "0111"; -- Binary representation of 7
     end if;
     
     
