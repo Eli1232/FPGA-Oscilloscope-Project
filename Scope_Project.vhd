@@ -21,8 +21,7 @@ entity Scope_Project is
 		pio31:   out std_logic;
 		v_enc_d: in std_logic;  --pin 47 encoder DT 
 		v_enc_clk: in std_logic;   --pin 48 encoder CLK
-		h_enc_d: in std_logic;  --pin 45 encoder DT **check if these are the right direction
-		h_enc_clk: in std_logic   --pin 46 encoder CLK
+		enc_btn: in std_logic   --pin 46 encoder CLK
 	);
 end Scope_Project;
 
@@ -57,10 +56,10 @@ architecture arch of Scope_Project is
 		);
 	end component;
 	
-		constant samples: natural:=200;
+	constant samples: natural:=639;
 	signal fclk:  std_logic;
 	signal rdy:   std_logic;
-	signal thrsh: std_logic_vector(11 downto 0):= b"101110111000"; --set to 3000 to before we want to adjust it
+	signal thrsh: std_logic_vector(11 downto 0); --set to 3000 to before we want to adjust it
 	signal addra: std_logic_vector(9 downto 0);
 	signal addra0: std_logic_vector(9 downto 0);
 	signal addra1: std_logic_vector(9 downto 0);
@@ -90,7 +89,7 @@ architecture arch of Scope_Project is
 	signal datab_i_1: std_logic_vector(35 downto 0); --mine
 	signal datab_i_2: std_logic_vector(35 downto 0); --mine
 	signal trigflag: std_logic; --mine
-	signal trigcount: unsigned(7 downto 0):=b"00000000"; --mine
+	signal trigcount: unsigned(9 downto 0):=b"0000000000"; --mine
 	
 	signal re_buf: unsigned(1 downto 0);
 	signal wr_buf: unsigned(1 downto 0);
@@ -136,18 +135,26 @@ architecture arch of Scope_Project is
     
     
     --trigcount: what trigger index you're at
-    signal pre_trig: unsigned(7 downto 0):=b"00000000"; --how much data you want to show before the trigger
-    signal post_trig: unsigned(7 downto 0):=b"11000111"; --start at 199, how much data you want to show after the trigger
+    signal pre_trig: unsigned(9 downto 0):=b"0000000000"; --how much data you want to show before the trigger
+    signal post_trig: unsigned(9 downto 0):=b"1001111111"; --start at 639, how much data you want to show after the trigger
     
-  --  signal vga_draw_cnt: unsigned(7 downto 0);
+    
 	
-	--    if (hcount>=to_unsigned(220,10)) and
---    (hcount<=to_unsigned(420,10)) and 
---    (vcount>=to_unsigned(140,10)) and 
---    (vcount<=to_unsigned(340,10)) then
+	type FSM_Type is (S0, S1, S2); --mine
+	signal FSM_enc: FSM_type:= S0;
+	signal enc_btn_free: std_logic:= '1';
+	signal enc_b_0: std_logic;
+    signal enc_b_1: std_logic;
+    signal enc_b_2: std_logic;
+    signal enc_b_3: std_logic;
+    
+    signal thrsh_lvl: unsigned(11 downto 0):= b"100000000000"; --set to 2048 to before we want to adjust it
+    signal scaled_thrsh: unsigned(11 downto 0);
+    
+    
 	
 begin
-	--cmt: lab05_cmt port map(clk_i=>clk,clk_o=>fclk);
+--	cmt1: lab05_cmt port map(clk_i=>clk,clk_o=>fclk);
 	adc: lab05_adc port map(clk_i=>clkfx,vaux5n_i=>vaux5_n,vaux5p_i=>vaux5_p,
 		rdy_o=>rdy,data_o=>datab(11 downto 0));
 	ram0: lab05_ram port map(clka_i=>clkfx,wea_i=>'0',addra_i=>addra0,
@@ -347,8 +354,8 @@ pio31<= pio_state;
 	
     --Ram buffering- read buffer logic
 
-    if addra = b"0011000111"  then  --  = 199
-        if trigcount >= b"0011000111" then -- =199
+    if addra = std_logic_vector(to_unsigned(samples,10)) then  --  = 639
+        if trigcount >= samples then -- =639
             re_buf <= wr_buf;
         else
             re_buf <= (wr_buf - 1) mod 3;
@@ -360,20 +367,22 @@ pio31<= pio_state;
     
     --VGA- drawing
  
-    if hcount mod 3 = b"0000000000" then --every 3rd column, we want to draw a pixel of one of our 200 samples
-        addra <= std_logic_vector(hcount/3); --we read the Nth number in ram
-        scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/9) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
-        --and flip it so 3.3V is  pixel 0, which is the top of the screen
-        if (vcount = scaled_vcount) then    --if the current row is the same value as the scaled version
-            blank<='0';         -- don't blank, set the colors
-            obj1_red <= b"11";
-        --    obj1_blu <= b"11";
-        else
-            blank<='1';     --otherwise blank, no color
-        end if;
-    else 
+    scaled_thrsh <= 480 - (thrsh_lvl/9);
+ 
+    addra <= std_logic_vector(hcount); --we read the Nth number in ram
+    scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/9) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
+    --and flip it so 3.3V is  pixel 0, which is the top of the screen
+    if (vcount = scaled_vcount) then --and (v_enc_cw_free = '1' or v_enc_ccw_free = '1')) then    --if the current row is the same value as the scaled version
+        blank<='0';         -- don't blank, set the colors
+        obj1_red <= b"11";
+    --    obj1_blu <= b"11";
+    elsif vcount = scaled_thrsh then
+        blank<='0';         -- don't blank, set the colors
+        obj1_blu <= b"11";
+    else
         blank<='1';     --otherwise blank, no color
-    end if;
+    end if; 
+
 --        vga_draw_cnt <= vga_draw_cnt + 1;
 	
 	
@@ -383,36 +392,7 @@ pio31<= pio_state;
 		end if; --end of frame
 		
         
-        --ADC- writing values to RAM NORMAL
-            if (rdy = '1') then --if the ADC has a value to send
-                web <= '1';		--enable writing to RAMB
-                if ((trigcount = 0)) then --handle rollover addresses 0-199  
-                    uaddrb <= b"0000000000";
-                else
-                    uaddrb<= uaddrb + 1; --if not at max value, increment
-                end if;
-            else
-                uaddrb<= uaddrb; --if there is no new ADC value, write to the old address
-                web <= '1';
-            end if;
-        
-        
---                --ADC- writing values to RAM with horizontal shift adjustment
---            if (rdy = '1') then --if the ADC has a value to send
---                web <= '1';		--enable writing to RAMB
---                if ((trigflag = '1' and trigcount = 0)) then --handle rollover addresses 0-199  **normal one
---                    uaddrb <= b"0000000000";
---                else
---                    uaddrb<= uaddrb + 1; --if not at max value, increment
---                end if;
---            else
---                uaddrb<= uaddrb; --if there is no new ADC value, write to the old address
---                web <= '1';
---            end if;
-        
-        
-        
-        
+
         
         --drive neighboring pin in square wave
         if(pio_count = 1039) then --if it rolls over
@@ -426,66 +406,44 @@ pio31<= pio_state;
             pio_count<= pio_count + 1;
          end if;
          
-     
-     
-     
-         
-         
-  --triggering normal version
---   if(rdy = '1' and btn = '1') then
-     if rdy = '1' then
-       sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
-       sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
-       if(unsigned(sr1) <= unsigned(thrsh) and unsigned(sr0) >= unsigned(thrsh)) then --If signal rose above thrsh, then trigger
-            trigflag <= '1'; 
-       else
-            trigflag <= trigflag;
-       end if;
+       
+         --triggering with horizontal shift
+        if rdy = '1' then
+            web <= '1';		--enable writing to RAMB
+            uaddrb <= trigcount;
+            sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
+            sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
+            
+            if trigcount < pre_trig or (unsigned(sr1) <= thrsh_lvl and unsigned(sr0) >= thrsh_lvl) then
+                trigflag <= '1';
+            elsif trigcount = pre_trig then
+                trigflag <= '0'; 
+            else 
+                trigflag <= trigflag;         
+            end if;
        if(trigflag = '1') then
---           if(trigcount = 0) then --Set the ram address to 0 so it's on the left of the screen
---                uaddrb <= b"0000000000";
---           end if;
-           sr2 <= sr1;
-           sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
-           trigcount <= trigcount + 1;
-       end if;
-       
-       
---         --triggering with horizontal shift
---        if rdy = '1' then
---            sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
---            sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
---            if trigcount < pre_trig then 
---                sr2 <= sr1;
---                sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
---                trigcount <= trigcount + 1;
---            elsif(unsigned(sr1) <= unsigned(thrsh) and unsigned(sr0) >= unsigned(thrsh)) then --If signal rose above thrsh, then trigger
---                trigflag <= '1'; 
---            else 
---                trigflag <= trigflag;         
---            end if;
---       if(trigflag = '1') then
-----           if(trigcount = 0) then --Set the ram address to 0 so it's on the left of the screen
-----                uaddrb <= b"0000000000";
-----           end if;
---           sr2 <= sr1;
---           sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
---           trigcount <= trigcount + 1;
---       end if;    
-       
-       
-       
        ----Ram buffering- write buffer logic
        
-       if(trigcount >= 199) then --Collect 200 samples, then rollover the count and reset the flag
+       if(trigcount = samples) then --Collect 200 samples, then rollover the count and reset the flag
             trigflag <= '0';
-            trigcount <= b"00000000";
+            trigcount <= b"0000000000";
             if re_buf = (wr_buf + 1)mod 3 then
                 wr_buf <= (wr_buf + 2)mod 3;
             else
                 wr_buf <= (wr_buf + 1)mod 3;
             end if;
+       else --if not at max
+
+
+           sr2 <= sr1;
+           sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
+           trigcount <= trigcount + 1;
        end if;
+       end if;
+       
+    else
+        uaddrb<= uaddrb; --if there is no new ADC value, write to the old address
+        web <= '0';
     end if;   --end if rdy is 1
 
 
@@ -510,7 +468,7 @@ pio31<= pio_state;
 --        v_enc_ccw_free<= '1'; --flag allows for ccw to be read
 --    end if;
     
-    if (v_enc_clk_3='1') then --if clk is hi after d falls, start ccw counting
+    if (v_enc_clk_3='1') then --if clk is hi after d falls, start CCW counting
         if v_enc_ccw_free = '1' then
             if (v_enc_ccw_cnt < 300) then --if we are less than max count
                 v_enc_ccw_cnt<=v_enc_ccw_cnt+1;     --increment
@@ -519,118 +477,101 @@ pio31<= pio_state;
               v_enc_cw_cnt <= b"0000000000";
               v_enc_ccw_free <= '0';                --reset both flags
               v_enc_cw_free <= '0';
+              
+              
+              case FSM_enc is
+                when S0=>       --vertical position
                 if v_off_plus = 0 then  -- if we don't have a positive to take away from
                     v_off_minus <= v_off_minus + 1; --move down
                 else
                     v_off_plus <= v_off_plus - 1;   --move less up
                 end if;
+                when S1=>   --horizontal position
+                   if post_trig < samples then
+                      pre_trig <= pre_trig - 1;
+                      post_trig <= post_trig + 1;
+                  else        --if we hit max, then don't move horiz
+                      pre_trig <= pre_trig;
+                      post_trig <= post_trig;
+                  end if;
+                when S2=>   --trigger position
+                    if thrsh_lvl > 10 then -- 0 + 10
+                        thrsh_lvl <= thrsh_lvl - 10;
+                    else
+                        thrsh_lvl <= thrsh_lvl;
+                    end if;
+              end case;
+                
+                
+                
+                
             end if;
         end if;
     --elsif (v_enc_clk_3='0') then    --if clk is low after d falls, start cw counting
     else
         if v_enc_cw_free = '1' then
-            if (v_enc_cw_cnt < 300) then --if the button is being pressed, and we aren't at max, increase dbcount
+            if (v_enc_cw_cnt < 300) then --if the button is being pressed, and we aren't at max, increase dbcount CW counting
                 v_enc_cw_cnt<=v_enc_cw_cnt+1;
             else --if we hit max count
               v_enc_cw_cnt <= b"0000000000";
               v_enc_ccw_cnt <= b"0000000000";
               v_enc_cw_free <= '0';
               v_enc_ccw_free <= '0';
+              
+              
+              case FSM_enc is
+                when S0=>       --vertical position
                 if v_off_minus = 0 then
                     v_off_plus <= v_off_plus + 1; --move up
                 else
                     v_off_minus <= v_off_minus - 1; --move less down
                 end if;
+                when S1=>   --horizontal position
+                  if pre_trig < samples then
+                      pre_trig <= pre_trig + 1;
+                      post_trig <= post_trig - 1;
+                  else --if we hit max, then don't move horiz
+                      pre_trig <= pre_trig;
+                      post_trig <= post_trig;
+                  end if;
+                when S2=>   --trigger position
+                    if thrsh_lvl < 4085 then -- 4095 - 10 might need to change this range
+                        thrsh_lvl <= thrsh_lvl + 10;
+                    else
+                        thrsh_lvl <= thrsh_lvl;
+                    end if;
+              end case;
+              
+              
             end if;
         end if;
     end if;
-    
-    
-    
-    
---        if v_enc_clk_3 = '0' then --cw
---            if v_off_minus = 0 then
---                v_off_plus <= v_off_plus + 1; --move up
---            else
---                v_off_minus <= v_off_minus - 1; --move less down
---            end if;
---        else
---            if v_off_plus = 0 then  --ccw
---                v_off_minus <= v_off_minus + 1; --move down
---            else
---                v_off_plus <= v_off_plus - 1;   --move less up
---            end if;
---    end if; 	
 
 
+--Encoder Button Stuff
+enc_b_0 <= enc_btn;
+enc_b_1 <= enc_b_0;
+enc_b_2 <= enc_b_1;
+enc_b_3 <= enc_b_2;
 
---    --Horiz position encoder
---    --**********need to change all these variables
-----    v_pos_cw_1 <= v_pos_cw;
-----    v_pos_cw_2 <= v_pos_cw_1;
-----    v_pos_cw_3 <= v_pos_cw_2;
-    
-----    v_pos_ccw_1 <= v_pos_ccw;
-----    v_pos_ccw_2 <= v_pos_ccw_1;
-----    v_pos_ccw_3 <= v_pos_ccw_2;
-    
---    if v_pos_cw_3 < v_pos_cw_2 then  --if rising edge
---        if v_pos_ccw_3 = '0' then --if CW?
---            if pre_trig < 199 then
---                pre_trig <= pre_trig + 1;
---                post_trig <= post_trig - 1;
---            else
---                null;
---            end if;
---        else
---            if post_trig < 199 then
---                pre_trig <= pre_trig - 1;
---                post_trig <= post_trig + 1;
---            else
---                null;
---            end if;
---    end if; 	
---    end if;
-
-    btn0_0 <= btn(0);
-    btn0_1 <= btn0_0;
-    btn0_2 <= btn0_1;
-    btn1_0 <= btn(0);
-    btn1_1 <= btn0_0;
-    btn1_2 <= btn0_1;
-    if (btn0_2='0') then
-        if(btn0_free='1') then
-            led(0) <= '1';
-            if (vertical_gain_index > 0) then
-                led(1) <= '1';
-                vertical_gain_index<=vertical_gain_index-1;
-                vertical_gain<=gain(to_integer(vertical_gain_index));
-            end if;
-            btn0_free<='0';
-        end if;
-    else
-        btn0_free<='1';
-        btn1_free<='0';
+if enc_b_3 = '0' then
+    if enc_btn_free = '1' then
+      case FSM_enc is
+        when S0=>       --vertical position
+            FSM_enc <= S1;
+        when S1=>   --horizontal position
+            FSM_enc <= S2;
+        when S2=>   --trigger position
+            FSM_enc <= S0;
+      end case;
+      enc_btn_free <= '0';
     end if;
-    
-    
-    if (btn1_2='0') then
-        if(btn1_free='1') then
-            led(2)<='1';
-            if (vertical_gain_index < 8) then
-            led(3)<='1';
-                vertical_gain_index<=vertical_gain_index+1;
-                vertical_gain<=gain(to_integer(vertical_gain_index));
-		    end if;
-		    btn1_free<='0';
-	    end if;
-	else
-	   btn0_free<='0';
-	   btn1_free<='1';
-	end if;
+else
+    FSM_enc <= FSM_enc;
+    enc_btn_free <= '1';
+end if;
 
-
-
+--thrsh_lvl <= unsigned(thrsh);
 
 end if; --end of rising edge
 
