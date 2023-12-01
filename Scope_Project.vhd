@@ -108,7 +108,7 @@ architecture arch of Scope_Project is
     signal scaled_vcount: unsigned(11 downto 0);
     
     signal vertical_gain: unsigned(6 downto 0):=to_unsigned(9,7); 
-    signal vertical_gain_index: unsigned(3 downto 0):=to_unsigned(0,4); --there can be 8 different gains
+    signal vertical_gain_index: unsigned(3 downto 0):=to_unsigned(4,4); --there can be 8 different gains
 	type gain_lookup_table is array (7 downto 0) of unsigned(6 downto 0);
 	signal gain : gain_lookup_table;
 	signal btn0_0: std_logic; 
@@ -117,8 +117,8 @@ architecture arch of Scope_Project is
     signal btn1_0: std_logic;
     signal btn1_1: std_logic;
     signal btn1_2: std_logic;
-    signal btn0_free: std_logic;
-    signal btn1_free: std_logic;
+    signal btn0_free: std_logic:='0';
+    signal btn1_free: std_logic:='0';
     
     signal v_enc_clk_1: std_logic;
     signal v_enc_clk_2: std_logic;
@@ -546,6 +546,58 @@ pio31<= pio_state;
             end if;
         end if;
     end if;
+    
+    btn0_0 <= btn(0);
+    btn0_1 <= btn0_0;
+    btn0_2 <= btn0_1;
+    btn1_0 <= btn(1);
+    btn1_1 <= btn0_0;
+    btn1_2 <= btn0_1;
+    if (vertical_gain_index=to_unsigned(4,4)) then
+        led(0)<='1';
+        led(1)<='1';
+    elsif (vertical_gain_index=to_unsigned(3,4)) then
+        led(0)<='0';
+        led(1)<='1';
+    elsif (vertical_gain_index=to_unsigned(2,4)) then
+        led(0)<='1';
+        led(1)<='0';
+    elsif (vertical_gain_index=to_unsigned(1,4)) then
+        led(0)<='0';
+        led(1)<='0';
+    end if;
+    if (btn0_2='1') then
+        if(btn0_free='1') then
+            --led(0) <= '1';
+            if (vertical_gain_index > 0) then
+                led(1) <= '1';
+                vertical_gain_index<=vertical_gain_index-1;
+                vertical_gain<=gain(to_integer(vertical_gain_index));
+            end if;
+            btn0_free<='0';
+        end if;
+    else
+        btn0_free<='1';
+        btn1_free<='0';
+    end if;
+    
+    
+    if (btn1_2='1') then
+        if(btn1_free='1') then
+            --led(2)<='1';
+            if (vertical_gain_index < 8) then
+            led(3)<='1';
+                vertical_gain_index<=vertical_gain_index+1;
+                vertical_gain<=gain(to_integer(vertical_gain_index));
+		    end if;
+		    btn1_free<='0';
+	    end if;
+	else
+	   btn0_free<='0';
+	   btn1_free<='1';
+	end if;
+   
+    
 
 
 --Encoder Button Stuff
