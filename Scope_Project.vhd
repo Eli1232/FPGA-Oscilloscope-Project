@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 library UNISIM; 
-use UNISIM.vcomponents.all; 
+use UNISIM.vcomponents.all;  --hi Eli
   
 entity Scope_Project is
 	port(
@@ -16,7 +16,8 @@ entity Scope_Project is
 		vsync: out   std_logic;
 		vaux5_n: in  std_logic;
 		vaux5_p: in  std_logic;
-		btn:     in  std_logic;
+		btn:      in std_logic_vector(1 downto 0);
+		led:       out std_logic_vector(3 downto 0);
 		pio31:   out std_logic;
 		v_enc_d: in std_logic;  --pin 47 encoder DT 
 		v_enc_clk: in std_logic;   --pin 48 encoder CLK
@@ -106,6 +107,19 @@ architecture arch of Scope_Project is
     signal scaled_hcount: unsigned(9 downto 0);
     signal scaled_vcount: unsigned(11 downto 0);
     
+    signal vertical_gain: unsigned(6 downto 0):=to_unsigned(9,7); 
+    signal vertical_gain_index: unsigned(3 downto 0):=to_unsigned(4,4); --there can be 8 different gains
+	type gain_lookup_table is array (7 downto 0) of unsigned(6 downto 0);
+	signal gain : gain_lookup_table;
+	signal btn0_0: std_logic; 
+    signal btn0_1: std_logic;
+    signal btn0_2: std_logic;
+    signal btn1_0: std_logic;
+    signal btn1_1: std_logic;
+    signal btn1_2: std_logic;
+    signal btn0_free: std_logic:='0';
+    signal btn1_free: std_logic:='0';
+    
     signal v_enc_clk_1: std_logic;
     signal v_enc_clk_2: std_logic;
     signal v_enc_clk_3: std_logic;
@@ -152,6 +166,8 @@ begin
 		dataa_i=>(others=>'0'),dataa_o=>dataa2,clkb_i=>fclk,
 		web_i=>web2,addrb_i=>addrb2,datab_i=>datab_i_2,datab_o=>open); --mine
 		
+		gain <= (to_unsigned(1,7), to_unsigned(2,7), to_unsigned(3,7), to_unsigned(4,7), to_unsigned(9,7), to_unsigned(16,7), to_unsigned(32,7), to_unsigned(64,7)); --setting my gain
+
 		addrb <= std_logic_vector(uaddrb);
 	--	addrb1 <= std_logic_vector(uaddrb1);
 	--	addrb2 <= std_logic_vector(uaddrb2);
@@ -379,7 +395,7 @@ pio31<= pio_state;
 		end case;
 		
 	
-    --Ram buffering- read buffer logic 
+    --Ram buffering- read buffer logic
 
     if addra = std_logic_vector(to_unsigned(samples,10)) then  --  = 639
         if trigcount >= samples then -- =639
@@ -394,10 +410,10 @@ pio31<= pio_state;
     
     --VGA- drawing
  
-    scaled_thrsh <= 480 - (thrsh_lvl/9);
+    scaled_thrsh <= 480 - (thrsh_lvl/vertical_gain);
  
     addra <= std_logic_vector(hcount); --we read the Nth number in ram
-    scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/9) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
+    scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/vertical_gain) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
     --and flip it so 3.3V is  pixel 0, which is the top of the screen
     if (vcount = scaled_vcount) or ((vcount = scaled_thrsh) and (v_enc_cw_free = '1' or v_enc_ccw_free = '1')) then    --if the current row is the same value as the scaled version
         blank<='0';         -- don't blank, set the colors
@@ -534,6 +550,69 @@ pio31<= pio_state;
             end if;
         end if;
     end if;
+    
+        btn0_0 <= btn(0);
+        btn0_1 <= btn0_0;
+        btn0_2 <= btn0_1;
+        btn1_0 <= btn(1);
+        btn1_1 <= btn1_0;
+        btn1_2 <= btn1_1;
+        if (vertical_gain_index=to_unsigned(7,4)) then
+            led(0)<='1';
+            led(1)<='1';
+        elsif (vertical_gain_index=to_unsigned(6,4)) then
+            led(0)<='0';
+            led(1)<='1';
+        elsif (vertical_gain_index=to_unsigned(1,4)) then
+            led(0)<='1';
+            led(1)<='0';
+        elsif (vertical_gain_index=to_unsigned(0,4)) then
+            led(0)<='0';
+            led(1)<='0';
+        end if;
+        if (btn0_2='1') then
+            if(btn0_free='1') then
+               if (vertical_gain_index > 0) then
+                   vertical_gain_index<=vertical_gain_index-1;
+                   vertical_gain<=gain(to_integer(vertical_gain_index));
+               end if;
+            end if;
+        else
+            led(2)<='0';
+            btn0_free<='1';
+        end if;
+    
+    if (btn1_2='1') then
+        if(btn1_free='1') then
+            if (vertical_gain_index < 7) then
+                vertical_gain_index<=vertical_gain_index+1;
+                vertical_gain<=gain(to_integer(vertical_gain_index));
+		    end if;
+		    btn1_free<='0';
+	    end if;
+	else
+	   btn1_free<='1';
+	end if;
+	--test with LED lights
+    if (vertical_gain_index = to_unsigned(0, 4)) then
+        led <= "0000"; -- Binary representation of 0
+    elsif (vertical_gain_index = to_unsigned(1, 4)) then
+        led <= "0001"; -- Binary representation of 1
+    elsif (vertical_gain_index = to_unsigned(2, 4)) then
+        led <= "0010"; -- Binary representation of 2
+    elsif (vertical_gain_index = to_unsigned(3, 4)) then
+        led <= "0011"; -- Binary representation of 3
+    elsif (vertical_gain_index = to_unsigned(4, 4)) then
+        led <= "0100"; -- Binary representation of 4
+    elsif (vertical_gain_index = to_unsigned(5, 4)) then
+        led <= "0101"; -- Binary representation of 5
+    elsif (vertical_gain_index = to_unsigned(6, 4)) then
+        led <= "0110"; -- Binary representation of 6
+    elsif (vertical_gain_index = to_unsigned(7, 4)) then
+        led <= "0111"; -- Binary representation of 7
+    end if;
+    
+    
 
 
 --Encoder Button Stuff
