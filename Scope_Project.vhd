@@ -584,14 +584,14 @@ pio31<= pio_state;
 --            end if;
 --    end if; 	
 --    end if;
-    if (btn(0)='0') then
+    if (btn(0)='1') then
             led(0) <= '1';
             if (vertical_gain_index > 0) then
                 led(1) <= '1';
                 vertical_gain_index<=vertical_gain_index-1;
                 vertical_gain<=gain(to_integer(vertical_gain_index));
             end if;
-    elsif (btn(1)='0') then
+    elsif (btn(1)='1') then
             led(2)<='1';
             if (vertical_gain_index < 8) then
             led(3)<='1';
