@@ -128,13 +128,14 @@ architecture arch of Scope_Project is
 	
 	type FSM_Type is (S0, S1, S2); --mine
 	signal FSM_enc: FSM_type:= S0;
+	signal enc_btn_free: std_logic:= '1';
 	signal enc_b_0: std_logic;
     signal enc_b_1: std_logic;
     signal enc_b_2: std_logic;
     signal enc_b_3: std_logic;
     
-    signal thrsh_lvl: unsigned(11 downto 0):= b"101110111000"; --set to 3000 to before we want to adjust it
-    signal scaled_thrsh: unsigned(9 downto 0);
+    signal thrsh_lvl: unsigned(11 downto 0):= b"100000000000"; --set to 2048 to before we want to adjust it
+    signal scaled_thrsh: unsigned(11 downto 0);
     
     
 	
@@ -355,10 +356,13 @@ pio31<= pio_state;
     addra <= std_logic_vector(hcount); --we read the Nth number in ram
     scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/9) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
     --and flip it so 3.3V is  pixel 0, which is the top of the screen
-    if (vcount = scaled_vcount) or ((vcount = scaled_thrsh) and (v_enc_cw_free = '1' or v_enc_ccw_free = '1')) then    --if the current row is the same value as the scaled version
+    if (vcount = scaled_vcount) then --and (v_enc_cw_free = '1' or v_enc_ccw_free = '1')) then    --if the current row is the same value as the scaled version
         blank<='0';         -- don't blank, set the colors
         obj1_red <= b"11";
     --    obj1_blu <= b"11";
+    elsif vcount = scaled_thrsh then
+        blank<='0';         -- don't blank, set the colors
+        obj1_blu <= b"11";
     else
         blank<='1';     --otherwise blank, no color
     end if; 
@@ -475,8 +479,8 @@ pio31<= pio_state;
                       post_trig <= post_trig;
                   end if;
                 when S2=>   --trigger position
-                    if thrsh_lvl > 0 then
-                        thrsh_lvl <= thrsh_lvl - 1;
+                    if thrsh_lvl > 10 then -- 0 + 10
+                        thrsh_lvl <= thrsh_lvl - 10;
                     else
                         thrsh_lvl <= thrsh_lvl;
                     end if;
@@ -515,8 +519,8 @@ pio31<= pio_state;
                       post_trig <= post_trig;
                   end if;
                 when S2=>   --trigger position
-                    if thrsh_lvl < 4095 then
-                        thrsh_lvl <= thrsh_lvl + 1;
+                    if thrsh_lvl < 4085 then -- 4095 - 10 might need to change this range
+                        thrsh_lvl <= thrsh_lvl + 10;
                     else
                         thrsh_lvl <= thrsh_lvl;
                     end if;
@@ -535,14 +539,20 @@ enc_b_2 <= enc_b_1;
 enc_b_3 <= enc_b_2;
 
 if enc_b_3 = '0' then
-  case FSM_enc is
-    when S0=>       --vertical position
-        FSM_enc <= S1;
-    when S1=>   --horizontal position
-        FSM_enc <= S2;
-    when S2=>   --trigger position
-        FSM_enc <= S0;
-  end case;
+    if enc_btn_free = '1' then
+      case FSM_enc is
+        when S0=>       --vertical position
+            FSM_enc <= S1;
+        when S1=>   --horizontal position
+            FSM_enc <= S2;
+        when S2=>   --trigger position
+            FSM_enc <= S0;
+      end case;
+      enc_btn_free <= '0';
+    end if;
+else
+    FSM_enc <= FSM_enc;
+    enc_btn_free <= '1';
 end if;
 
 --thrsh_lvl <= unsigned(thrsh);
