@@ -547,56 +547,67 @@ pio31<= pio_state;
         end if;
     end if;
     
-    btn0_0 <= btn(0);
-    btn0_1 <= btn0_0;
-    btn0_2 <= btn0_1;
-    btn1_0 <= btn(1);
-    btn1_1 <= btn0_0;
-    btn1_2 <= btn0_1;
-    if (vertical_gain_index=to_unsigned(4,4)) then
-        led(0)<='1';
-        led(1)<='1';
-    elsif (vertical_gain_index=to_unsigned(3,4)) then
-        led(0)<='0';
-        led(1)<='1';
-    elsif (vertical_gain_index=to_unsigned(2,4)) then
-        led(0)<='1';
-        led(1)<='0';
-    elsif (vertical_gain_index=to_unsigned(1,4)) then
-        led(0)<='0';
-        led(1)<='0';
-    end if;
-    if (btn0_2='1') then
-        if(btn0_free='1') then
-            --led(0) <= '1';
-            if (vertical_gain_index > 0) then
-                led(1) <= '1';
-                vertical_gain_index<=vertical_gain_index-1;
-                vertical_gain<=gain(to_integer(vertical_gain_index));
-            end if;
-            btn0_free<='0';
+        btn0_0 <= btn(0);
+        btn0_1 <= btn0_0;
+        btn0_2 <= btn0_1;
+        btn1_0 <= btn(1);
+        btn1_1 <= btn1_0;
+        btn1_2 <= btn1_1;
+        if (vertical_gain_index=to_unsigned(7,4)) then
+            led(0)<='1';
+            led(1)<='1';
+        elsif (vertical_gain_index=to_unsigned(6,4)) then
+            led(0)<='0';
+            led(1)<='1';
+        elsif (vertical_gain_index=to_unsigned(1,4)) then
+            led(0)<='1';
+            led(1)<='0';
+        elsif (vertical_gain_index=to_unsigned(0,4)) then
+            led(0)<='0';
+            led(1)<='0';
         end if;
-    else
-        btn0_free<='1';
-        btn1_free<='0';
-    end if;
-    
+        if (btn0_2='1') then
+            if(btn0_free='1') then
+               led(2)<='1';
+               if (vertical_gain_index > 0) then
+                   vertical_gain_index<=vertical_gain_index-1;
+                   vertical_gain<=gain(to_integer(vertical_gain_index));
+               end if;
+               btn0_free<='0';
+            end if;
+        else
+            led(2)<='0';
+            btn0_free<='1';
+        end if;
     
     if (btn1_2='1') then
         if(btn1_free='1') then
-            --led(2)<='1';
-            if (vertical_gain_index < 8) then
             led(3)<='1';
+            if (vertical_gain_index < 7) then
                 vertical_gain_index<=vertical_gain_index+1;
                 vertical_gain<=gain(to_integer(vertical_gain_index));
 		    end if;
 		    btn1_free<='0';
 	    end if;
 	else
-	   btn0_free<='0';
+	   led(3)<='0';
 	   btn1_free<='1';
 	end if;
-   
+	--test with LED lights
+    if (vertical_gain_index=to_unsigned(7,4)) then
+            led(0)<='1';
+            led(1)<='1';
+        elsif (vertical_gain_index=to_unsigned(6,4)) then
+            led(0)<='0';
+            led(1)<='1';
+        elsif (vertical_gain_index=to_unsigned(1,4)) then
+            led(0)<='1';
+            led(1)<='0';
+        elsif (vertical_gain_index=to_unsigned(0,4)) then
+            led(0)<='0';
+            led(1)<='0';
+    end if;
+    
     
 
 
