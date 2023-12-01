@@ -112,7 +112,12 @@ architecture arch of Scope_Project is
     signal vertical_gain_index: unsigned(3 downto 0):=to_unsigned(0,4); --there can be 8 different gains
 	type gain_lookup_table is array (7 downto 0) of unsigned(6 downto 0);
 	signal gain : gain_lookup_table;
-
+	signal btn0_0: std_logic; 
+    signal btn0_1: std_logic;
+    signal btn0_2: std_logic;
+    signal btn1_0: std_logic;
+    signal btn1_1: std_logic;
+    signal btn1_2: std_logic;
     
     signal v_enc_clk_1: std_logic;
     signal v_enc_clk_2: std_logic;
@@ -584,14 +589,21 @@ pio31<= pio_state;
 --            end if;
 --    end if; 	
 --    end if;
-    if (btn(0)='1') then
+
+    btn0_0 <= btn(0);
+    btn0_1 <= btn0_0;
+    btn0_2 <= btn0_1;
+    btn1_0 <= btn(0);
+    btn1_1 <= btn0_0;
+    btn1_2 <= btn0_1;
+    if (btn0_2='1') then
             led(0) <= '1';
             if (vertical_gain_index > 0) then
                 led(1) <= '1';
                 vertical_gain_index<=vertical_gain_index-1;
                 vertical_gain<=gain(to_integer(vertical_gain_index));
             end if;
-    elsif (btn(1)='1') then
+    elsif (btn1_2='1') then
             led(2)<='1';
             if (vertical_gain_index < 8) then
             led(3)<='1';
