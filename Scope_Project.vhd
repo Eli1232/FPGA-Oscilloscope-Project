@@ -355,7 +355,7 @@ pio31<= pio_state;
     --Ram buffering- read buffer logic
 
     if addra = std_logic_vector(to_unsigned(samples,10)) then  --  = 639
-        if trigcount >= samples then -- =639
+        if trigcount >= samples then -- =639, prevent falling 2 buffers behind.
             re_buf <= wr_buf;
         else
             re_buf <= (wr_buf - 1) mod 3;
@@ -410,7 +410,7 @@ pio31<= pio_state;
          --triggering with horizontal shift
         if rdy = '1' then
             web <= '1';		--enable writing to RAMB
-            uaddrb <= trigcount;
+            uaddrb <= trigcount/3;
             sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
             sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
             
