@@ -557,7 +557,6 @@ pio31<= pio_state;
             if(btn0_free='1') then
                if (vertical_gain_index > 0) then
                    vertical_gain_index<=vertical_gain_index-1;
-                   vertical_gain<=gain(to_integer(vertical_gain_index));
                end if;
                btn0_free<='0';
             end if;
@@ -569,7 +568,6 @@ pio31<= pio_state;
         if(btn1_free='1') then
             if (vertical_gain_index < 7) then
                 vertical_gain_index<=vertical_gain_index+1;
-                vertical_gain<=gain(to_integer(vertical_gain_index));
 		    end if;
 		    btn1_free<='0';
 	    end if;
@@ -595,7 +593,7 @@ pio31<= pio_state;
         led <= "0111"; -- Binary representation of 7
     end if;
     
-    
+    vertical_gain<=gain(to_integer(vertical_gain_index));
 
 
 --Encoder Button Stuff
