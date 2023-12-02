@@ -367,10 +367,10 @@ pio31<= pio_state;
     
     --VGA- drawing
  
-    scaled_thrsh <= 480 - (thrsh_lvl/vertical_gain);
+    scaled_thrsh <= 480 - (thrsh_lvl/9);
  
     addra <= std_logic_vector(hcount); --we read the Nth number in ram
-    scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/vertical_gain) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
+    scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/9) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
     --and flip it so 3.3V is  pixel 0, which is the top of the screen
     if (vcount = scaled_vcount) then --and (v_enc_cw_free = '1' or v_enc_ccw_free = '1')) then    --if the current row is the same value as the scaled version
         blank<='0';         -- don't blank, set the colors
@@ -553,19 +553,6 @@ pio31<= pio_state;
         btn1_0 <= btn(1);
         btn1_1 <= btn1_0;
         btn1_2 <= btn1_1;
-        if (vertical_gain_index=to_unsigned(7,4)) then
-            led(0)<='1';
-            led(1)<='1';
-        elsif (vertical_gain_index=to_unsigned(6,4)) then
-            led(0)<='0';
-            led(1)<='1';
-        elsif (vertical_gain_index=to_unsigned(1,4)) then
-            led(0)<='1';
-            led(1)<='0';
-        elsif (vertical_gain_index=to_unsigned(0,4)) then
-            led(0)<='0';
-            led(1)<='0';
-        end if;
         if (btn0_2='1') then
             if(btn0_free='1') then
                if (vertical_gain_index > 0) then
@@ -574,7 +561,6 @@ pio31<= pio_state;
                end if;
             end if;
         else
-            led(2)<='0';
             btn0_free<='1';
         end if;
     
