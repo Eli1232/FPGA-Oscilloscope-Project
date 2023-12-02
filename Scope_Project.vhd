@@ -553,28 +553,14 @@ pio31<= pio_state;
         btn1_0 <= btn(1);
         btn1_1 <= btn1_0;
         btn1_2 <= btn1_1;
-        if (vertical_gain_index=to_unsigned(7,4)) then
-            led(0)<='1';
-            led(1)<='1';
-        elsif (vertical_gain_index=to_unsigned(6,4)) then
-            led(0)<='0';
-            led(1)<='1';
-        elsif (vertical_gain_index=to_unsigned(1,4)) then
-            led(0)<='1';
-            led(1)<='0';
-        elsif (vertical_gain_index=to_unsigned(0,4)) then
-            led(0)<='0';
-            led(1)<='0';
-        end if;
         if (btn0_2='1') then
             if(btn0_free='1') then
                if (vertical_gain_index > 0) then
                    vertical_gain_index<=vertical_gain_index-1;
-                   vertical_gain<=gain(to_integer(vertical_gain_index));
                end if;
+               btn0_free<='0';
             end if;
         else
-            led(2)<='0';
             btn0_free<='1';
         end if;
     
@@ -582,7 +568,6 @@ pio31<= pio_state;
         if(btn1_free='1') then
             if (vertical_gain_index < 7) then
                 vertical_gain_index<=vertical_gain_index+1;
-                vertical_gain<=gain(to_integer(vertical_gain_index));
 		    end if;
 		    btn1_free<='0';
 	    end if;
@@ -608,7 +593,7 @@ pio31<= pio_state;
         led <= "0111"; -- Binary representation of 7
     end if;
     
-    
+    vertical_gain<=gain(to_integer(vertical_gain_index));
 
 
 --Encoder Button Stuff
