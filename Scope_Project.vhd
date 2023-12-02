@@ -467,18 +467,10 @@ pio31<= pio_state;
 --        v_enc_cw_free<= '1'; --flag allows for cw to be read
 --        v_enc_ccw_free<= '1'; --flag allows for ccw to be read
 --    end if;
-    
-    if (v_enc_clk_3='1') then --if clk is hi after d falls, start CCW counting
-        if v_enc_ccw_free = '1' then
-            if (v_enc_ccw_cnt < 300) then --if we are less than max count
-                v_enc_ccw_cnt<=v_enc_ccw_cnt+1;     --increment
-            else --if we hit max count
-              v_enc_ccw_cnt <= b"0000000000";       --reset both counters
-              v_enc_cw_cnt <= b"0000000000";
-              v_enc_ccw_free <= '0';                --reset both flags
-              v_enc_cw_free <= '0';
-              
-              
+
+    if v_enc_d > v_enc_d_1 then
+        if v_enc_clk = '1' then
+
               case FSM_enc is
                 when S0=>       --vertical position
              --   if v_off_plus > 128/vertical_gain then  -- if we don't have a positive to take away from
@@ -504,24 +496,9 @@ pio31<= pio_state;
                         thrsh_lvl <= thrsh_lvl;
                     end if;
               end case;
-                
-                
-                
-                
-            end if;
-        end if;
-    --elsif (v_enc_clk_3='0') then    --if clk is low after d falls, start cw counting
-    else
-        if v_enc_cw_free = '1' then
-            if (v_enc_cw_cnt < 300) then --if the button is being pressed, and we aren't at max, increase dbcount CW counting
-                v_enc_cw_cnt<=v_enc_cw_cnt+1;
-            else --if we hit max count
-              v_enc_cw_cnt <= b"0000000000";
-              v_enc_ccw_cnt <= b"0000000000";
-              v_enc_cw_free <= '0';
-              v_enc_ccw_free <= '0';
               
-              
+        else
+
               case FSM_enc is
                 when S0=>       --vertical position
             --    if v_off_minus > 128/vertical_gain then
@@ -548,10 +525,10 @@ pio31<= pio_state;
                     end if;
               end case;
               
-              
-            end if;
-        end if;
-    end if;
+              end if;
+          end if;
+    
+ 
     
         btn0_0 <= btn(0);
         btn0_1 <= btn0_0;
