@@ -470,7 +470,7 @@ pio31<= pio_state;
     
     if (v_enc_clk_3='1') then --if clk is hi after d falls, start CCW counting
         if v_enc_ccw_free = '1' then
-            if (v_enc_ccw_cnt < 300) then --if we are less than max count
+            if (v_enc_ccw_cnt < 100) then --if we are less than max count
                 v_enc_ccw_cnt<=v_enc_ccw_cnt+1;     --increment
             else --if we hit max count
               v_enc_ccw_cnt <= b"0000000000";       --reset both counters
@@ -509,11 +509,13 @@ pio31<= pio_state;
                 
                 
             end if;
+        else
+            v_enc_ccw_cnt <= v_enc_ccw_cnt;
         end if;
     --elsif (v_enc_clk_3='0') then    --if clk is low after d falls, start cw counting
     else
         if v_enc_cw_free = '1' then
-            if (v_enc_cw_cnt < 300) then --if the button is being pressed, and we aren't at max, increase dbcount CW counting
+            if (v_enc_cw_cnt < 100) then --if the button is being pressed, and we aren't at max, increase dbcount CW counting
                 v_enc_cw_cnt<=v_enc_cw_cnt+1;
             else --if we hit max count
               v_enc_cw_cnt <= b"0000000000";
@@ -550,6 +552,8 @@ pio31<= pio_state;
               
               
             end if;
+        else
+            v_enc_cw_cnt <= v_enc_cw_cnt;
         end if;
     end if;
     
