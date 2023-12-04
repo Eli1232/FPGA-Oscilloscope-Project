@@ -154,17 +154,17 @@ architecture arch of Scope_Project is
     
 	
 begin
---	cmt1: lab05_cmt port map(clk_i=>clk,clk_o=>fclk);
-	adc: lab05_adc port map(clk_i=>clkfx,vaux5n_i=>vaux5_n,vaux5p_i=>vaux5_p,
+	cmt1: lab05_cmt port map(clk_i=>clk,clk_o=>fclk);
+	adc: lab05_adc port map(clk_i=>fclk,vaux5n_i=>vaux5_n,vaux5p_i=>vaux5_p,
 		rdy_o=>rdy,data_o=>datab(11 downto 0));
 	ram0: lab05_ram port map(clka_i=>clkfx,wea_i=>'0',addra_i=>addra0,
-		dataa_i=>(others=>'0'),dataa_o=>dataa0,clkb_i=>clkfx,
+		dataa_i=>(others=>'0'),dataa_o=>dataa0,clkb_i=>fclk,
 		web_i=>web0,addrb_i=>addrb0,datab_i=>datab_i_0,datab_o=>open); --mine
 	ram1: lab05_ram port map(clka_i=>clkfx,wea_i=>'0',addra_i=>addra1,
-		dataa_i=>(others=>'0'),dataa_o=>dataa1,clkb_i=>clkfx,
+		dataa_i=>(others=>'0'),dataa_o=>dataa1,clkb_i=>fclk,
 		web_i=>web1,addrb_i=>addrb1,datab_i=>datab_i_1,datab_o=>open); --mine
 	ram2: lab05_ram port map(clka_i=>clkfx,wea_i=>'0',addra_i=>addra2,
-		dataa_i=>(others=>'0'),dataa_o=>dataa2,clkb_i=>clkfx,
+		dataa_i=>(others=>'0'),dataa_o=>dataa2,clkb_i=>fclk,
 		web_i=>web2,addrb_i=>addrb2,datab_i=>datab_i_2,datab_o=>open); --mine
 		
 		gain <= (to_unsigned(1,7), to_unsigned(2,7), to_unsigned(3,7), to_unsigned(4,7), to_unsigned(9,7), to_unsigned(16,7), to_unsigned(32,7), to_unsigned(64,7)); --setting my gain
@@ -270,8 +270,75 @@ pio31<= pio_state;
 	--     490 to 491: Vertical sync (active low)
 	------------------------------------------------------------------
 	--process(clkfx)
-	process(clkfx, uaddrb, pio_count, datab, btn, thrsh, trigcount, trigflag, sr0, sr1, sr2)
+	process(fclk, clkfx, uaddrb, pio_count, datab, btn, thrsh, trigcount, trigflag, sr0, sr1, sr2)
 	begin
+	
+	   if rising_edge(fclk) then
+	      case wr_buf is        --write buffer
+		  when b"00" =>
+		      web0 <= web;
+		      web1 <= '0'; --make other ram blocks unwriteable when we switch to the new one
+		      web2 <= '0';
+		      addrb0 <= std_logic_vector(uaddrb);
+		      datab_i_0 <= sr3;
+		  when b"01" =>
+		      web1 <= web;
+		      web0 <= '0';
+		      web2 <= '0';
+		      addrb1 <= std_logic_vector(uaddrb);
+		      datab_i_1 <= sr3;
+		  when b"10" =>
+		      web2 <= web;
+		      web1 <= '0';
+		      web0 <= '0';
+		      addrb2 <= std_logic_vector(uaddrb);
+		      datab_i_2 <= sr3;
+		  when others =>
+		      null;
+		end case;
+		
+		         --triggering with horizontal shift
+        if rdy = '1' then
+            web <= '1';		--enable writing to RAMB
+            uaddrb <= trigcount;
+            sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
+            sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
+            
+            if trigcount < pre_trig or (unsigned(sr1) <= thrsh_lvl and unsigned(sr0) >= thrsh_lvl) then
+                trigflag <= '1';
+            elsif trigcount = pre_trig then
+                trigflag <= '0'; 
+            else 
+                trigflag <= trigflag;         
+            end if;
+       if(trigflag = '1') then
+       ----Ram buffering- write buffer logic
+       
+       if(trigcount = samples) then --Collect 200 samples, then rollover the count and reset the flag
+            trigflag <= '0';
+            trigcount <= b"0000000000";
+            if re_buf = (wr_buf + 1)mod 3 then
+                wr_buf <= (wr_buf + 2)mod 3;
+            else
+                wr_buf <= (wr_buf + 1)mod 3;
+            end if;
+       else --if not at max
+
+
+           sr2 <= sr1;
+           sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
+           trigcount <= trigcount + 1;
+       end if;
+       end if;
+       
+    else
+        uaddrb<= uaddrb; --if there is no new ADC value, write to the old address
+        web <= '0';
+    end if;   --end if rdy is 1
+		
+		
+	   end if; --end rising edge
+	
 		if rising_edge(clkfx) then --if the vga clock is rising 
 			-- Pixel position counters
 			if (hcount>=to_unsigned(799,10)) then --rollover horizontal count
@@ -313,29 +380,6 @@ pio31<= pio_state;
 
 			
 ---Ram buffering- Ram assigner
-		
-		case wr_buf is        --write buffer
-		  when b"00" =>
-		      web0 <= web;
-		      web1 <= '0'; --make other ram blocks unwriteable when we switch to the new one
-		      web2 <= '0';
-		      addrb0 <= std_logic_vector(uaddrb);
-		      datab_i_0 <= sr3;
-		  when b"01" =>
-		      web1 <= web;
-		      web0 <= '0';
-		      web2 <= '0';
-		      addrb1 <= std_logic_vector(uaddrb);
-		      datab_i_1 <= sr3;
-		  when b"10" =>
-		      web2 <= web;
-		      web1 <= '0';
-		      web0 <= '0';
-		      addrb2 <= std_logic_vector(uaddrb);
-		      datab_i_2 <= sr3;
-		  when others =>
-		      null;
-		end case;
 		
 		case re_buf is            --read buffer
 		  when b"00" =>
@@ -407,44 +451,7 @@ pio31<= pio_state;
          end if;
          
        
-         --triggering with horizontal shift
-        if rdy = '1' then
-            web <= '1';		--enable writing to RAMB
-            uaddrb <= trigcount;
-            sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
-            sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
-            
-            if trigcount < pre_trig or (unsigned(sr1) <= thrsh_lvl and unsigned(sr0) >= thrsh_lvl) then
-                trigflag <= '1';
-            elsif trigcount = pre_trig then
-                trigflag <= '0'; 
-            else 
-                trigflag <= trigflag;         
-            end if;
-       if(trigflag = '1') then
-       ----Ram buffering- write buffer logic
-       
-       if(trigcount = samples) then --Collect 200 samples, then rollover the count and reset the flag
-            trigflag <= '0';
-            trigcount <= b"0000000000";
-            if re_buf = (wr_buf + 1)mod 3 then
-                wr_buf <= (wr_buf + 2)mod 3;
-            else
-                wr_buf <= (wr_buf + 1)mod 3;
-            end if;
-       else --if not at max
 
-
-           sr2 <= sr1;
-           sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
-           trigcount <= trigcount + 1;
-       end if;
-       end if;
-       
-    else
-        uaddrb<= uaddrb; --if there is no new ADC value, write to the old address
-        web <= '0';
-    end if;   --end if rdy is 1
 
 
     --Vert position encoder
@@ -458,19 +465,36 @@ pio31<= pio_state;
     
     --saturation counter
     
-    if v_enc_d_3 > v_enc_d_1 then  --if falling edge
-        v_enc_cw_free<= '1'; --flag allows for cw to be read
+    if v_enc_d_3 > v_enc_d_1 then  --if falling edge, for CCW
+--        v_enc_cw_free<= '1'; --flag allows for cw to be read
         v_enc_ccw_free<= '1'; --flag allows for ccw to be read
     end if;
     
+
 --    if v_enc_clk_3 > v_enc_clk_1 then  --if falling edge
 --        v_enc_cw_free<= '1'; --flag allows for cw to be read
 --        v_enc_ccw_free<= '1'; --flag allows for ccw to be read
 --    end if;
 
-    if v_enc_d > v_enc_d_1 then
-        if v_enc_clk = '1' then
+--    if v_enc_d > v_enc_d_1 then
+--        if v_enc_clk = '1' then
 
+    if v_enc_clk_3 > v_enc_clk_1 then  --if falling edge, for CW
+        v_enc_cw_free<= '1'; --flag allows for cw to be read
+        v_enc_ccw_free<= '1'; --flag allows for ccw to be read
+    end if;
+    
+    if (v_enc_clk_3='1') then --if clk is hi after d falls, start CCW counting
+        if v_enc_ccw_free = '1' then
+            if (v_enc_ccw_cnt < 300) then --if we are less than max count
+                v_enc_ccw_cnt<=v_enc_ccw_cnt+1;     --increment
+            else --if we hit max count
+              v_enc_ccw_cnt <= b"0000000000";       --reset both counters
+              v_enc_cw_cnt <= b"0000000000";
+              v_enc_ccw_free <= '0';                --reset both flags
+              v_enc_cw_free <= '0';
+              
+              
               case FSM_enc is
                 when S0=>       --vertical position
              --   if v_off_plus > 128/vertical_gain then  -- if we don't have a positive to take away from
@@ -496,8 +520,24 @@ pio31<= pio_state;
                         thrsh_lvl <= thrsh_lvl;
                     end if;
               end case;
+                
+                
+                
+            end if;
+        end if;
+    --elsif (v_enc_clk_3='0') then    --if clk is low after d falls, start cw counting
+    end if;
+    if v_enc_d = '1' then
+        if v_enc_cw_free = '1' then
+            if (v_enc_cw_cnt < 300) then --if the button is being pressed, and we aren't at max, increase dbcount CW counting
+                v_enc_cw_cnt<=v_enc_cw_cnt+1;
+            else --if we hit max count
+              v_enc_cw_cnt <= b"0000000000";
+              v_enc_ccw_cnt <= b"0000000000";
+              v_enc_cw_free <= '0';
+              v_enc_ccw_free <= '0';
               
-        else
+
 
               case FSM_enc is
                 when S0=>       --vertical position
@@ -527,7 +567,7 @@ pio31<= pio_state;
               
               end if;
           end if;
-    
+    end if;
  
     
         btn0_0 <= btn(0);
