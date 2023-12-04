@@ -8,3 +8,6 @@
 - [ ] Horizontal Gain- Nathan 
 - [ ] Trigger level- Eli
 - [x] Triple Buffering
+- [ ] Fix Rotary encoder
+- [ ] Get ADC running at 1 MSample/s and don't fail timing (get rid of signals that cross clock domains)
+- [ ] Probably should make it so that we write to ram blocks once a frame instead of continuously, otherwise non-periodic signals won't work (we have allthe information we need for one screen in one ram block)

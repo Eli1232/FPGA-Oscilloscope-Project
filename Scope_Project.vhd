@@ -371,8 +371,7 @@ pio31<= pio_state;
     
     --VGA- drawing
  
-    scaled_thrsh <= 480 - (thrsh_lvl/vertical_gain);
-    --scaled_samples <= to_unsigned(samples,10)*horizontal_gain;
+    scaled_thrsh <= 480 - (thrsh_lvl/vertical_gain) - v_off_plus + v_off_minus;
  
     addra <= std_logic_vector(hcount); --we read the Nth number in ram
     scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/vertical_gain) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
@@ -486,9 +485,12 @@ pio31<= pio_state;
               
               case FSM_enc is
                 when S0=>       --vertical position
-                if v_off_plus = 0 then  -- if we don't have a positive to take away from
+             --   if v_off_plus > 128/vertical_gain then  -- if we don't have a positive to take away from
+                if v_off_plus > 0 then  -- if we don't have a positive to take away from
+           --         v_off_minus <= v_off_minus + 128/vertical_gain; --move down
                     v_off_minus <= v_off_minus + 1; --move down
                 else
+                    --v_off_plus <= v_off_plus - 128/vertical_gain;   --move less up
                     v_off_plus <= v_off_plus - 1;   --move less up
                 end if;
                 when S1=>   --horizontal position
@@ -526,10 +528,13 @@ pio31<= pio_state;
               
               case FSM_enc is
                 when S0=>       --vertical position
-                if v_off_minus = 0 then
-                    v_off_plus <= v_off_plus + 1; --move up
+            --    if v_off_minus > 128/vertical_gain then
+                if v_off_minus > 0 then
+                --    v_off_plus <= v_off_plus + 128/vertical_gain; --move up
+                     v_off_plus <= v_off_plus + 1; --move up
                 else
-                    v_off_minus <= v_off_minus - 1; --move less down
+                    --v_off_minus <= v_off_minus - 128/vertical_gain; --move less down
+                    v_off_minus <= v_off_minus - 1;
                 end if;
                 when S1=>   --horizontal position
                   if pre_trig < samples then
