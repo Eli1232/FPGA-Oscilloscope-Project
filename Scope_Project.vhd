@@ -148,6 +148,8 @@ architecture arch of Scope_Project is
     signal enc_b_2: std_logic;
     signal enc_b_3: std_logic;
     
+    signal enc_read_state: unsigned (2 downto 0):= b"000";
+    
     signal thrsh_lvl: unsigned(11 downto 0):= b"100000000000"; --set to 2048 to before we want to adjust it
     signal scaled_thrsh: unsigned(11 downto 0);
     
@@ -468,17 +470,30 @@ pio31<= pio_state;
 --        v_enc_ccw_free<= '1'; --flag allows for ccw to be read
 --    end if;
     
-    if (v_enc_clk_3='1') then --if clk is hi after d falls, start CCW counting
-        if v_enc_ccw_free = '1' then
-            if (v_enc_ccw_cnt < 100) then --if we are less than max count
-                v_enc_ccw_cnt<=v_enc_ccw_cnt+1;     --increment
-            else --if we hit max count
-              v_enc_ccw_cnt <= b"0000000000";       --reset both counters
-              v_enc_cw_cnt <= b"0000000000";
-              v_enc_ccw_free <= '0';                --reset both flags
-              v_enc_cw_free <= '0';
-              
-              
+    case enc_read_state is
+        when b"000" => --0
+            if v_enc_clk_3 = '0' then
+                enc_read_state <= b"001";
+            elsif v_enc_d_3 = '0' then
+                enc_read_state <= b"100";
+            else
+                enc_read_state <= enc_read_state;
+            end if;
+        when b"001" => --1
+            if v_enc_d_3 = '0' then
+                enc_read_state <= b"010";
+            else
+                enc_read_state <= enc_read_state;
+            end if;
+        when b"010" => --2
+            if v_enc_clk_3 = '1' then
+                enc_read_state <= b"011";
+            else
+                enc_read_state <= enc_read_state;
+            end if;
+        when b"011" => --3
+            if v_enc_d_3 = '1' and v_enc_clk_3 = '1' then
+                
               case FSM_enc is
                 when S0=>       --vertical position
              --   if v_off_plus > 128/vertical_gain then  -- if we don't have a positive to take away from
@@ -505,26 +520,27 @@ pio31<= pio_state;
                     end if;
               end case;
                 
-                
-                
-                
+                enc_read_state <= b"000";
+            else
+                enc_read_state <= enc_read_state;
             end if;
-        else
-            v_enc_ccw_cnt <= v_enc_ccw_cnt;
-        end if;
-    --elsif (v_enc_clk_3='0') then    --if clk is low after d falls, start cw counting
-    else
-        if v_enc_cw_free = '1' then
-            if (v_enc_cw_cnt < 100) then --if the button is being pressed, and we aren't at max, increase dbcount CW counting
-                v_enc_cw_cnt<=v_enc_cw_cnt+1;
-            else --if we hit max count
-              v_enc_cw_cnt <= b"0000000000";
-              v_enc_ccw_cnt <= b"0000000000";
-              v_enc_cw_free <= '0';
-              v_enc_ccw_free <= '0';
-              
-              
-              case FSM_enc is
+        when b"100" => --4
+            if v_enc_clk_3 = '0' then
+                enc_read_state <= b"101";
+            else
+                enc_read_state <= enc_read_state;
+            end if; 
+        when b"101" => --5
+            if v_enc_d_3 = '1' then
+                enc_read_state <= b"110";
+            else
+                enc_read_state <= enc_read_state;
+            end if;
+        when b"110" => --6
+            if v_enc_d_3 = '1' and v_enc_clk_3 = '1' then
+            
+            
+     case FSM_enc is
                 when S0=>       --vertical position
             --    if v_off_minus > 128/vertical_gain then
                 if v_off_minus > 0 then
@@ -549,13 +565,22 @@ pio31<= pio_state;
                         thrsh_lvl <= thrsh_lvl;
                     end if;
               end case;
-              
-              
+                     
+            
+            
+            enc_read_state <= b"000";
+            else
+                enc_read_state <= enc_read_state;
             end if;
-        else
-            v_enc_cw_cnt <= v_enc_cw_cnt;
-        end if;
-    end if;
+        when others => null;
+    end case;
+    
+
+                
+                
+                
+                
+              
     
         btn0_0 <= btn(0);
         btn0_1 <= btn0_0;
