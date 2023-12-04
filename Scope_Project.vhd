@@ -359,20 +359,7 @@ pio31<= pio_state;
 		  when others =>
 		      null;
 		end case;
-		
-	
-    --Ram buffering- read buffer logic
-
-    if addra = std_logic_vector(to_unsigned(samples,10)) then  --  = 639
-        if trigcount >= samples then -- =639
-            re_buf <= wr_buf;
-        else
-            re_buf <= (wr_buf - 1) mod 3;
-        end if;
-    else
-        re_buf <= re_buf;
-    end if; 
-    
+		    
     
     --VGA- drawing
  
@@ -398,6 +385,17 @@ pio31<= pio_state;
 	
 		
 		if frame = '1' then
+		
+		    --Ram buffering- read buffer logic
+
+        if trigcount = samples then -- =639
+            re_buf <= wr_buf;
+        else
+            re_buf <= (wr_buf - 1) mod 3;
+        end if;
+    else
+        re_buf <= re_buf;
+		
 		
 		end if; --end of frame
 		
