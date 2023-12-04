@@ -155,7 +155,7 @@ architecture arch of Scope_Project is
     
     signal thrsh_lvl: unsigned(11 downto 0):= b"100000000000"; --set to 2048 to before we want to adjust it
     signal scaled_thrsh: unsigned(11 downto 0);
-    signal scaled_samples: unsigned(11 downto 0);  
+    signal scaled_samples: unsigned(16 downto 0);  
 	
 begin
 --	cmt1: lab05_cmt port map(clk_i=>clk,clk_o=>fclk);
@@ -358,8 +358,8 @@ pio31<= pio_state;
 	
     --Ram buffering- read buffer logic
 
-    if addra = std_logic_vector(scaled_samples) then  --  = 639
-        if trigcount >= scaled_samples then -- =639, prevent falling 2 buffers behind.
+    if addra = std_logic_vector(to_unsigned(samples,10)) then  --  = 639
+        if trigcount >= samples then -- =639, prevent falling 2 buffers behind.
             re_buf <= wr_buf;
         else
             re_buf <= (wr_buf - 1) mod 3;
@@ -372,7 +372,7 @@ pio31<= pio_state;
     --VGA- drawing
  
     scaled_thrsh <= 480 - (thrsh_lvl/vertical_gain);
-    scaled_samples <= to_unsigned(samples,12)/horizontal_gain;
+    --scaled_samples <= to_unsigned(samples,10)*horizontal_gain;
  
     addra <= std_logic_vector(hcount); --we read the Nth number in ram
     scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/vertical_gain) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
@@ -429,7 +429,7 @@ pio31<= pio_state;
        if(trigflag = '1') then
        ----Ram buffering- write buffer logic
        
-       if(trigcount = scaled_samples) then --Collect samples, then rollover the count and reset the flag
+       if(trigcount = samples) then --Collect samples, then rollover the count and reset the flag
             trigflag <= '0';
             trigcount <= b"0000000000";
             if re_buf = (wr_buf + 1)mod 3 then
@@ -492,7 +492,7 @@ pio31<= pio_state;
                     v_off_plus <= v_off_plus - 1;   --move less up
                 end if;
                 when S1=>   --horizontal position
-                   if post_trig < scaled_samples then
+                   if post_trig < samples then
                       pre_trig <= pre_trig - 1;
                       post_trig <= post_trig + 1;
                   else        --if we hit max, then don't move horiz
@@ -532,7 +532,7 @@ pio31<= pio_state;
                     v_off_minus <= v_off_minus - 1; --move less down
                 end if;
                 when S1=>   --horizontal position
-                  if pre_trig < scaled_samples then
+                  if pre_trig < samples then
                       pre_trig <= pre_trig + 1;
                       post_trig <= post_trig - 1;
                   else --if we hit max, then don't move horiz
