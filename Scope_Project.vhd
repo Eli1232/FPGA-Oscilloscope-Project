@@ -526,10 +526,14 @@ pio31<= pio_state;
     if (vcount = scaled_vcount) then --and (v_enc_cw_free = '1' or v_enc_ccw_free = '1')) then    --if the current row is the same value as the scaled version
         blank<='0';         -- don't blank, set the colors
         obj1_red <= b"11";
+        obj1_grn <= b"00";
+        obj1_blu <= b"11";
     --    obj1_blu <= b"11";
     elsif vcount = scaled_thrsh then
         blank<='0';         -- don't blank, set the colors
-        obj1_blu <= b"11";
+        obj1_red <= b"00";
+        obj1_grn <= b"11";
+        obj1_blu <= b"00";
     else
         blank<='1';     --otherwise blank, no color
     end if; 
