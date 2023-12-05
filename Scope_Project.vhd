@@ -57,6 +57,7 @@ architecture arch of Scope_Project is
 	end component;
 	
 	constant samples: natural:=639;
+	constant timeout_thresh: natural:=208000000;
 	signal fclk:  std_logic;
 	signal rdy:   std_logic;
 	signal thrsh: std_logic_vector(11 downto 0); --set to 3000 to before we want to adjust it
@@ -122,8 +123,11 @@ architecture arch of Scope_Project is
     signal btn1_free: std_logic:='0';
     
     --horizontal gain section
-    signal horizontal_gain: unsigned(6 downto 0):=to_unsigned(3,7); --might not need to go as extreme as 64 on horizontal gain.
-    
+    signal horizontal_gain: unsigned(6 downto 0):=to_unsigned(1,7); --might not need to go as extreme as 64 on horizontal gain.
+    signal hgain_counter: unsigned(6 downto 0):=to_unsigned(0,7);
+    type hgain_machine is (hgain, no_hgain);
+	signal FSM_hgain: hgain_machine;
+    --signal h_trig: std_logic:='0';
     
     signal v_enc_clk_1: std_logic;
     signal v_enc_clk_2: std_logic;
@@ -144,7 +148,6 @@ architecture arch of Scope_Project is
     signal post_trig: unsigned(9 downto 0):=b"1001111111"; --start at 639, how much data you want to show after the trigger
     
     
-	
 	type FSM_Type is (S0, S1, S2); --mine
 	signal FSM_enc: FSM_type:= S0;
 	signal enc_btn_free: std_logic:= '1';
@@ -155,7 +158,9 @@ architecture arch of Scope_Project is
     
     signal thrsh_lvl: unsigned(11 downto 0):= b"100000000000"; --set to 2048 to before we want to adjust it
     signal scaled_thrsh: unsigned(11 downto 0);
-    signal scaled_samples: unsigned(16 downto 0);  
+    signal scaled_samples: unsigned(16 downto 0);
+    signal timeout: std_logic:='0';
+    signal timeout_counter: unsigned(27 downto 0):=to_unsigned(0,28);  
 	
 begin
 --	cmt1: lab05_cmt port map(clk_i=>clk,clk_o=>fclk);
@@ -359,7 +364,7 @@ pio31<= pio_state;
     --Ram buffering- read buffer logic
 
     if addra = std_logic_vector(to_unsigned(samples,10)) then  --  = 639
-        if trigcount >= samples then -- =639, prevent falling 2 buffers behind.
+        if trigcount >= samples then -- =639
             re_buf <= wr_buf;
         else
             re_buf <= (wr_buf - 1) mod 3;
@@ -372,6 +377,7 @@ pio31<= pio_state;
     --VGA- drawing
  
     scaled_thrsh <= 480 - (thrsh_lvl/vertical_gain) - v_off_plus + v_off_minus;
+    scaled_samples <= to_unsigned(samples,17)/horizontal_gain;
  
     addra <= std_logic_vector(hcount); --we read the Nth number in ram
     scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/vertical_gain) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
@@ -408,45 +414,67 @@ pio31<= pio_state;
             end if;
         else --if it does not rollover, increment
             pio_count<= pio_count + 1;
-         end if;
+        end if;
          
+       if timeout_counter=to_unsigned(timeout_thresh,28) then
+           timeout_counter<=to_unsigned(0,28);
+           timeout<='0';
+       else
+           timeout_counter<=timeout_counter+1;
+       end if;
+       
+       --basically, if the trigger is high, then either increment trigcount normally, or slower.
+       case FSM_hgain is
+           when no_hgain =>
+               if (trigflag='1') then
+                   trigcount<=trigcount+1;
+               end if;
+           when hgain => 
+               if (trigflag='1') then   
+                   if (hgain_counter = horizontal_gain-1) then
+                    trigcount <= trigcount+1; --the ADC sample will go to the very next address
+                    hgain_counter <= to_unsigned(0,7);
+                   else
+                    --drop the ADC sample
+                    hgain_counter <= hgain_counter+1;
+                   end if;
+               end if;
+       end case;
        
          --triggering with horizontal shift
         if rdy = '1' then
             web <= '1';		--enable writing to RAMB
-            uaddrb <= trigcount/horizontal_gain;
+            uaddrb <= trigcount;
             sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
             sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
             
-            if trigcount < pre_trig or (unsigned(sr1) <= thrsh_lvl and unsigned(sr0) >= thrsh_lvl) then
+            if (trigcount < pre_trig or (unsigned(sr1) <= thrsh_lvl and unsigned(sr0) >= thrsh_lvl)) or timeout='1' then
                 trigflag <= '1';
+                --h_trig <= '1';
             elsif trigcount = pre_trig then
                 trigflag <= '0'; 
             else 
                 trigflag <= trigflag;         
-            end if;
-       if(trigflag = '1') then
-       ----Ram buffering- write buffer logic
+            end if;       
        
-       if(trigcount = samples) then --Collect samples, then rollover the count and reset the flag
-            trigflag <= '0';
-            trigcount <= b"0000000000";
-            if re_buf = (wr_buf + 1)mod 3 then
-                wr_buf <= (wr_buf + 2)mod 3;
-            else
-                wr_buf <= (wr_buf + 1)mod 3;
-            end if;
-       else --if not at max
-
-
-           sr2 <= sr1;
-           sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
-           trigcount <= trigcount + 1;
-       end if;
-       end if;
-       
+           if(trigflag = '1') then
+           ----Ram buffering- write buffer logic
+               if(trigcount = samples) then --Collect samples, then rollover the count and reset the flag
+                    trigflag <= '0';
+                    trigcount <= b"0000000000";
+                    if re_buf = (wr_buf + 1)mod 3 then
+                        wr_buf <= (wr_buf + 2)mod 3;
+                    else
+                        wr_buf <= (wr_buf + 1)mod 3;
+                    end if;
+               else --if not at max
+                   sr2 <= sr1;
+                   sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
+                   --trigcount <= trigcount + 1;
+               end if;
+           end if;
     else
-        uaddrb<= uaddrb; --if there is no new ADC value, write to the old address
+        uaddrb<=uaddrb; --if there is no new ADC value, write to the old address
         web <= '0';
     end if;   --end if rdy is 1
 
@@ -584,25 +612,7 @@ pio31<= pio_state;
 	else
 	   btn1_free<='1';
 	end if;
-	--test with LED lights
-    if (vertical_gain_index = to_unsigned(0, 4)) then
-        led <= "0000"; -- Binary representation of 0
-    elsif (vertical_gain_index = to_unsigned(1, 4)) then
-        led <= "0001"; -- Binary representation of 1
-    elsif (vertical_gain_index = to_unsigned(2, 4)) then
-        led <= "0010"; -- Binary representation of 2
-    elsif (vertical_gain_index = to_unsigned(3, 4)) then
-        led <= "0011"; -- Binary representation of 3
-    elsif (vertical_gain_index = to_unsigned(4, 4)) then
-        led <= "0100"; -- Binary representation of 4
-    elsif (vertical_gain_index = to_unsigned(5, 4)) then
-        led <= "0101"; -- Binary representation of 5
-    elsif (vertical_gain_index = to_unsigned(6, 4)) then
-        led <= "0110"; -- Binary representation of 6
-    elsif (vertical_gain_index = to_unsigned(7, 4)) then
-        led <= "0111"; -- Binary representation of 7
-    end if;
-    
+	    
     vertical_gain<=gain(to_integer(vertical_gain_index));
 
 
