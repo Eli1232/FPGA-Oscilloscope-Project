@@ -59,7 +59,7 @@ architecture arch of Scope_Project is
 	end component;
 	
 	constant samples: natural:=639;
-	constant timeout_thresh: natural:=102400000;
+	constant timeout_thresh: natural:=1024000;  --add 1 zero to make it 4 seconds at 25 MHz
 	signal fclk:  std_logic;
 	signal rdy:   std_logic;
 	signal thrsh: std_logic_vector(11 downto 0); --set to 3000 to before we want to adjust it
@@ -432,10 +432,10 @@ pio31<= pio_state;
  if rdy = '1' then       
          web <= '1';
          
-       if timeout_counter=to_unsigned(timeout_thresh,28) then
-           timeout_counter<=to_unsigned(0,28);
-           timeout<='1';
-       else
+       if timeout_counter=to_unsigned(timeout_thresh,28) then   --if at max timeout count value
+           timeout_counter<=to_unsigned(0,28);                  --rollover to 0
+           timeout<='1';                                        --turn timeout flag on
+       else                                                     --if we're not at max count
            if FSM_hgain = no_hgain and timeout = '0' then       --if we're not triggering and we haven't timed out
                 timeout_counter<=timeout_counter+1;
            end if;
@@ -448,14 +448,18 @@ pio31<= pio_state;
         
        case FSM_hgain is
            when no_hgain =>
-            if (unsigned(sr1) <= thrsh_lvl and unsigned(sr0) >= thrsh_lvl) or timeout='1' then      --if we trigger or if we timeout, 
+            if timeout='1' then 
                 FSM_hgain <= hgain;                 --go to hgain mode to collect 640 samples
+            end if;
+            if (unsigned(sr1) <= thrsh_lvl and unsigned(sr0) >= thrsh_lvl) then      --if we trigger or if we timeout,
+                FSM_hgain <= hgain;                 --go to hgain mode to collect 640 samples
+                timeout <= '0';         --no longer timed out
+                timeout_counter <= to_unsigned(0,28);
             end if;
            when hgain =>
                               
             if(uaddrb = samples) then --If at max, rollover the count and reset counts
                     FSM_hgain <= no_hgain;  -- we need to trigger or timeout again to take more samples
-                    timeout <= '0';         --no longer timed out
                     uaddrb <= b"0000000000";    --reset our address
                     --Write Buffer Switching
                     if re_buf = (wr_buf + 1)mod 3 then
