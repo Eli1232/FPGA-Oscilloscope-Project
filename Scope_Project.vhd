@@ -111,8 +111,8 @@ architecture arch of Scope_Project is
     signal scaled_vcount: unsigned(11 downto 0);
 
     --vertical gain section
-    signal vertical_gain: unsigned(6 downto 0):=to_unsigned(9,7); 
-    signal vertical_gain_index: unsigned(3 downto 0):=to_unsigned(4,4); --there can be 8 different gains
+    signal vertical_gain: unsigned(6 downto 0); 
+    signal vertical_gain_index: unsigned(3 downto 0):=to_unsigned(3,4); --there can be 8 different gains
 	type gain_lookup_table is array (7 downto 0) of unsigned(6 downto 0);
 	signal gain : gain_lookup_table;
 	signal btn0_0: std_logic; 
@@ -125,8 +125,8 @@ architecture arch of Scope_Project is
     signal btn1_free: std_logic:='0';
     
     --horizontal gain section
-    signal horizontal_gain: unsigned(6 downto 0):=to_unsigned(1,7); --might not need to go as extreme as 64 on horizontal gain.
-    signal horizontal_gain_index: unsigned(3 downto 0):=to_unsigned(0,4); --there can be 8 different gains
+    signal horizontal_gain: unsigned(6 downto 0); --might not need to go as extreme as 64 on horizontal gain.
+    signal horizontal_gain_index: unsigned(3 downto 0):=to_unsigned(4,4); --there can be 8 different gains
 	type h_gain_lookup_table is array (4 downto 0) of unsigned(6 downto 0);    --5 elements, end is 4
 	signal h_gain : h_gain_lookup_table;
     signal hgain_counter: unsigned(6 downto 0):=to_unsigned(0,7);
@@ -293,6 +293,8 @@ pio31<= pio_state;
 	--     490 to 491: Vertical sync (active low)
 	------------------------------------------------------------------
 	--process(clkfx)
+	
+	
 	process(clkfx, uaddrb, pio_count, datab, btn, thrsh, trigflag, sr0, sr1, sr2)
 	begin
 		if rising_edge(clkfx) then --if the vga clock is rising 
@@ -640,6 +642,25 @@ end if;
 	end if;
 	    
     horizontal_gain<=h_gain(to_integer(horizontal_gain_index));
+
+
+if (horizontal_gain_index = to_unsigned(0, 4)) then
+        led <= "0000"; -- Binary representation of 0
+    elsif (horizontal_gain_index = to_unsigned(1, 4)) then
+        led <= "0001"; -- Binary representation of 1
+    elsif (horizontal_gain_index = to_unsigned(2, 4)) then
+        led <= "0010"; -- Binary representation of 2
+    elsif (horizontal_gain_index = to_unsigned(3, 4)) then
+        led <= "0011"; -- Binary representation of 3
+    elsif (horizontal_gain_index = to_unsigned(4, 4)) then
+        led <= "0100"; -- Binary representation of 4
+    elsif (horizontal_gain_index = to_unsigned(5, 4)) then
+        led <= "0101"; -- Binary representation of 5
+    elsif (horizontal_gain_index = to_unsigned(6, 4)) then
+        led <= "0110"; -- Binary representation of 6
+    elsif (horizontal_gain_index = to_unsigned(7, 4)) then
+        led <= "0111"; -- Binary representation of 7
+    end if;
 
 
 --Encoder Button Stuff
