@@ -21,7 +21,9 @@ entity Scope_Project is
 		pio31:   out std_logic;
 		v_enc_d: in std_logic;  --pin 47 encoder DT 
 		v_enc_clk: in std_logic;   --pin 48 encoder CLK
-		enc_btn: in std_logic   --pin 46 encoder CLK
+		enc_btn: in std_logic;   --pin 46 encoder CLK
+		h_gain_up_btn: in std_logic;  --pin 16 breadboad button for horizontal gain
+		h_gain_down_btn: in std_logic --pin 17 breadboad button for horizontal gain
 	);
 end Scope_Project;
 
@@ -57,7 +59,7 @@ architecture arch of Scope_Project is
 	end component;
 	
 	constant samples: natural:=639;
-	constant timeout_thresh: natural:=208000000;
+	constant timeout_thresh: natural:=102400000;
 	signal fclk:  std_logic;
 	signal rdy:   std_logic;
 	signal thrsh: std_logic_vector(11 downto 0); --set to 3000 to before we want to adjust it
@@ -124,10 +126,21 @@ architecture arch of Scope_Project is
     
     --horizontal gain section
     signal horizontal_gain: unsigned(6 downto 0):=to_unsigned(1,7); --might not need to go as extreme as 64 on horizontal gain.
+    signal horizontal_gain_index: unsigned(3 downto 0):=to_unsigned(0,4); --there can be 8 different gains
+	type h_gain_lookup_table is array (4 downto 0) of unsigned(6 downto 0);    --5 elements, end is 4
+	signal h_gain : h_gain_lookup_table;
     signal hgain_counter: unsigned(6 downto 0):=to_unsigned(0,7);
     type hgain_machine is (hgain, no_hgain);
 	signal FSM_hgain: hgain_machine;
     --signal h_trig: std_logic:='0';
+    signal h_up_btn_0: std_logic; 
+    signal h_up_btn_1: std_logic;
+    signal h_up_btn_2: std_logic;
+    signal h_down_btn_0: std_logic; 
+    signal h_down_btn_1: std_logic;
+    signal h_down_btn_2: std_logic;
+    signal h_up_btn_free: std_logic:='0';
+    signal h_down_btn_free: std_logic:='0';
     
     signal v_enc_clk_1: std_logic;
     signal v_enc_clk_2: std_logic;
@@ -177,6 +190,7 @@ begin
 		web_i=>web2,addrb_i=>addrb2,datab_i=>datab_i_2,datab_o=>open); --mine
 		
 		gain <= (to_unsigned(1,7), to_unsigned(2,7), to_unsigned(3,7), to_unsigned(4,7), to_unsigned(9,7), to_unsigned(16,7), to_unsigned(32,7), to_unsigned(64,7)); --setting my gain
+		h_gain <= (to_unsigned(1,7), to_unsigned(2,7), to_unsigned(3,7), to_unsigned(4,7), to_unsigned(9,7)); --setting my gain
 
 		addrb <= std_logic_vector(uaddrb);
 	--	addrb1 <= std_logic_vector(uaddrb1);
@@ -415,12 +429,14 @@ pio31<= pio_state;
          
          
          
+ if rdy = '1' then       
+         web <= '1';
          
        if timeout_counter=to_unsigned(timeout_thresh,28) then
            timeout_counter<=to_unsigned(0,28);
            timeout<='1';
        else
-           if FSM_hgain = no_hgain and timeout = '0' then       --if we're not triggering and 
+           if FSM_hgain = no_hgain and timeout = '0' then       --if we're not triggering and we haven't timed out
                 timeout_counter<=timeout_counter+1;
            end if;
        end if;
@@ -432,15 +448,16 @@ pio31<= pio_state;
         
        case FSM_hgain is
            when no_hgain =>
-            if (unsigned(sr1) <= thrsh_lvl and unsigned(sr0) >= thrsh_lvl) or timeout='1' then
-                FSM_hgain <= hgain;
+            if (unsigned(sr1) <= thrsh_lvl and unsigned(sr0) >= thrsh_lvl) or timeout='1' then      --if we trigger or if we timeout, 
+                FSM_hgain <= hgain;                 --go to hgain mode to collect 640 samples
             end if;
            when hgain =>
                               
-            if(uaddrb = samples) then --Collect samples, then rollover the count and reset the flag
-                    FSM_hgain <= no_hgain;
-                    timeout <= '0';
-                    uaddrb <= b"0000000000";
+            if(uaddrb = samples) then --If at max, rollover the count and reset counts
+                    FSM_hgain <= no_hgain;  -- we need to trigger or timeout again to take more samples
+                    timeout <= '0';         --no longer timed out
+                    uaddrb <= b"0000000000";    --reset our address
+                    --Write Buffer Switching
                     if re_buf = (wr_buf + 1)mod 3 then
                         wr_buf <= (wr_buf + 2)mod 3;
                     else
@@ -463,7 +480,7 @@ pio31<= pio_state;
                    
        end case;     
        
-
+end if;
 
     --Vert position encoder
     v_enc_d_1 <= v_enc_d;
@@ -571,6 +588,8 @@ pio31<= pio_state;
         end if;
     end if;
     
+    --Verticl Gain Buttons and Logic
+    
         btn0_0 <= btn(0);
         btn0_1 <= btn0_0;
         btn0_2 <= btn0_1;
@@ -600,6 +619,39 @@ pio31<= pio_state;
 	end if;
 	    
     vertical_gain<=gain(to_integer(vertical_gain_index));
+    
+    
+        --Horizontal Gain Buttons and Logic
+    
+        h_up_btn_0 <= h_gain_up_btn;
+        h_up_btn_1 <= h_up_btn_0;
+        h_up_btn_2 <= h_up_btn_1;
+        h_down_btn_0 <= h_gain_down_btn;
+        h_down_btn_1 <= h_down_btn_0;
+        h_down_btn_2 <= h_down_btn_1;
+        if (h_up_btn_2='1') then
+            if(h_up_btn_free='1') then
+                if (horizontal_gain_index < 4) then   --careful of size
+                    horizontal_gain_index<=horizontal_gain_index+1;
+                end if;
+               h_up_btn_free<='0';
+            end if;
+        else
+            h_up_btn_free<='1';
+        end if;
+    
+    if (h_down_btn_2='1') then
+        if(h_down_btn_free='1') then
+               if (horizontal_gain_index > 0) then
+                   horizontal_gain_index<=horizontal_gain_index-1;
+               end if;
+		    h_down_btn_free<='0';
+	    end if;
+	else
+	   h_down_btn_free<='1';
+	end if;
+	    
+    horizontal_gain<=h_gain(to_integer(horizontal_gain_index));
 
 
 --Encoder Button Stuff
