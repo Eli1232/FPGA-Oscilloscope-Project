@@ -279,7 +279,7 @@ pio31<= pio_state;
 	--     490 to 491: Vertical sync (active low)
 	------------------------------------------------------------------
 	--process(clkfx)
-	process(clkfx, uaddrb, pio_count, datab, btn, thrsh, trigcount, trigflag, sr0, sr1, sr2)
+	process(clkfx, uaddrb, pio_count, datab, btn, thrsh, trigflag, sr0, sr1, sr2)
 	begin
 		if rising_edge(clkfx) then --if the vga clock is rising 
 			-- Pixel position counters
@@ -359,8 +359,7 @@ pio31<= pio_state;
 		  when others =>
 		      null;
 		end case;
-		    
-    
+
     --VGA- drawing
  
     scaled_thrsh <= 480 - (thrsh_lvl/vertical_gain) - v_off_plus + v_off_minus;
@@ -388,7 +387,7 @@ pio31<= pio_state;
 		
 		    --Ram buffering- read buffer logic
 
-        if trigcount = samples then -- =639
+        if uaddrb = samples then -- =639
             re_buf <= wr_buf;
         else
             re_buf <= (wr_buf - 1) mod 3;
@@ -414,67 +413,56 @@ pio31<= pio_state;
             pio_count<= pio_count + 1;
         end if;
          
+         
+         
+         
        if timeout_counter=to_unsigned(timeout_thresh,28) then
            timeout_counter<=to_unsigned(0,28);
-           timeout<='0';
+           timeout<='1';
        else
-           timeout_counter<=timeout_counter+1;
+           if FSM_hgain = no_hgain and timeout = '0' then       --if we're not triggering and 
+                timeout_counter<=timeout_counter+1;
+           end if;
        end if;
        
        --basically, if the trigger is high, then either increment trigcount normally, or slower.
+   
+        sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
+        sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
+        
        case FSM_hgain is
            when no_hgain =>
-               if (trigflag='1') then
-                   trigcount<=trigcount+1;
-               end if;
-           when hgain => 
-               if (trigflag='1') then   
-                   if (hgain_counter = horizontal_gain-1) then
-                    trigcount <= trigcount+1; --the ADC sample will go to the very next address
-                    hgain_counter <= to_unsigned(0,7);
-                   else
-                    --drop the ADC sample
-                    hgain_counter <= hgain_counter+1;
-                   end if;
-               end if;
-       end case;
-       
-         --triggering with horizontal shift
-        if rdy = '1' then
-            web <= '1';		--enable writing to RAMB
-            uaddrb <= trigcount;
-            sr0 <= datab(11 downto 0); --Shift Register gets data from ADC 
-            sr1 <= sr0; --Data from one older clock cycle, used for triggering comparison
-            
-            if (trigcount < pre_trig or (unsigned(sr1) <= thrsh_lvl and unsigned(sr0) >= thrsh_lvl)) or timeout='1' then
-                trigflag <= '1';
-                --h_trig <= '1';
-            elsif trigcount = pre_trig then
-                trigflag <= '0'; 
-            else 
-                trigflag <= trigflag;         
-            end if;       
-       
-           if(trigflag = '1') then
-           ----Ram buffering- write buffer logic
-               if(trigcount = samples) then --Collect samples, then rollover the count and reset the flag
-                    trigflag <= '0';
-                    trigcount <= b"0000000000";
+            if (unsigned(sr1) <= thrsh_lvl and unsigned(sr0) >= thrsh_lvl) or timeout='1' then
+                FSM_hgain <= hgain;
+            end if;
+           when hgain =>
+                              
+            if(uaddrb = samples) then --Collect samples, then rollover the count and reset the flag
+                    FSM_hgain <= no_hgain;
+                    timeout <= '0';
+                    uaddrb <= b"0000000000";
                     if re_buf = (wr_buf + 1)mod 3 then
                         wr_buf <= (wr_buf + 2)mod 3;
                     else
                         wr_buf <= (wr_buf + 1)mod 3;
                     end if;
                else --if not at max
+               
+                   if (hgain_counter = horizontal_gain-1) then
+                    uaddrb <= uaddrb+1; --the ADC sample will go to the very next address
+                    hgain_counter <= to_unsigned(0,7);
+                   else
+                    --drop the ADC sample
+                    hgain_counter <= hgain_counter+1;
+                   end if;
+                   
                    sr2 <= sr1;
                    sr3(11 downto 0) <= sr2; --Shift Register sends data to Ram Block
                    --trigcount <= trigcount + 1;
-               end if;
-           end if;
-    else
-        uaddrb<=uaddrb; --if there is no new ADC value, write to the old address
-        web <= '0';
-    end if;   --end if rdy is 1
+               end if;       
+                   
+       end case;     
+       
 
 
     --Vert position encoder
