@@ -161,7 +161,7 @@ architecture arch of Scope_Project is
     signal post_trig: unsigned(9 downto 0):=b"1001111111"; --start at 639, how much data you want to show after the trigger
     
     
-	type FSM_Type is (S0, S1, S2); --mine
+	type FSM_Type is (S0, S1); --mine
 	signal FSM_enc: FSM_type:= S0;
 	signal enc_btn_free: std_logic:= '1';
 	signal enc_b_0: std_logic;
@@ -528,15 +528,7 @@ end if;
                     --v_off_plus <= v_off_plus - 128/vertical_gain;   --move less up
                     v_off_plus <= v_off_plus - 1;   --move less up
                 end if;
-                when S1=>   --horizontal position
-                   if post_trig < samples then
-                      pre_trig <= pre_trig - 1;
-                      post_trig <= post_trig + 1;
-                  else        --if we hit max, then don't move horiz
-                      pre_trig <= pre_trig;
-                      post_trig <= post_trig;
-                  end if;
-                when S2=>   --trigger position
+                when S1=>   --trigger position
                     if thrsh_lvl > 10 then -- 0 + 10
                         thrsh_lvl <= thrsh_lvl - 10;
                     else
@@ -571,15 +563,7 @@ end if;
                     --v_off_minus <= v_off_minus - 128/vertical_gain; --move less down
                     v_off_minus <= v_off_minus - 1;
                 end if;
-                when S1=>   --horizontal position
-                  if pre_trig < samples then
-                      pre_trig <= pre_trig + 1;
-                      post_trig <= post_trig - 1;
-                  else --if we hit max, then don't move horiz
-                      pre_trig <= pre_trig;
-                      post_trig <= post_trig;
-                  end if;
-                when S2=>   --trigger position
+                when S1=>   --trigger position
                     if thrsh_lvl < 4085 then -- 4095 - 10 might need to change this range
                         thrsh_lvl <= thrsh_lvl + 10;
                     else
@@ -670,8 +654,6 @@ if enc_b_3 = '0' then
         when S0=>       --vertical position
             FSM_enc <= S1;
         when S1=>   --horizontal position
-            FSM_enc <= S2;
-        when S2=>   --trigger position
             FSM_enc <= S0;
       end case;
       enc_btn_free <= '0';
