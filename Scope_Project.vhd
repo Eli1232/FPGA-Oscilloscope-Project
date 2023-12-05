@@ -67,19 +67,31 @@ architecture arch of Scope_Project is
 	signal addra0: std_logic_vector(9 downto 0);
 	signal addra1: std_logic_vector(9 downto 0);
 	signal addra2: std_logic_vector(9 downto 0);
-	signal addra3: std_logic_vector(9 downto 0);
+	signal addra3: std_logic_vector(9 downto 0):= std_logic_vector(to_unsigned(0,10));
+	signal addra4: std_logic_vector(9 downto 0):= std_logic_vector(to_unsigned(0,10));
+	signal addra5: std_logic_vector(9 downto 0):= std_logic_vector(to_unsigned(0,10));
+	signal addra6: std_logic_vector(9 downto 0):= std_logic_vector(to_unsigned(0,10));
 	signal dataa: std_logic_vector(35 downto 0);
     signal dataa0: std_logic_vector(35 downto 0);
     signal dataa1: std_logic_vector(35 downto 0);
     signal dataa2: std_logic_vector(35 downto 0);
     signal dataa3: std_logic_vector(35 downto 0);
+    signal dataa4: std_logic_vector(35 downto 0);
+    signal dataa5: std_logic_vector(35 downto 0);
+    signal dataa6: std_logic_vector(35 downto 0);
 	signal addrb: std_logic_vector(9 downto 0);
 	signal addrb0: std_logic_vector(9 downto 0);
 	signal addrb1: std_logic_vector(9 downto 0);
 	signal addrb2: std_logic_vector(9 downto 0);
-	signal addrb3: std_logic_vector(9 downto 0);
+	signal addrb3: std_logic_vector(9 downto 0):= std_logic_vector(to_unsigned(0,10));
+	signal addrb4: std_logic_vector(9 downto 0):= std_logic_vector(to_unsigned(0,10));
+	signal addrb5: std_logic_vector(9 downto 0):= std_logic_vector(to_unsigned(0,10));    
+	signal addrb6: std_logic_vector(9 downto 0):= std_logic_vector(to_unsigned(0,10));       
 	signal datab: std_logic_vector(35 downto 0);
 	signal datab3: std_logic_vector(35 downto 0);
+	signal datab4: std_logic_vector(35 downto 0);
+	signal datab5: std_logic_vector(35 downto 0);
+	signal datab6: std_logic_vector(35 downto 0);
 
 	signal web: std_logic; --mine
 	signal web0: std_logic; --mine
@@ -99,16 +111,6 @@ architecture arch of Scope_Project is
 	
 	signal re_buf: unsigned(1 downto 0);
 	signal wr_buf: unsigned(1 downto 0);
-	signal re_buf_0: unsigned(1 downto 0);
-	signal re_buf_1: unsigned(1 downto 0);
-	signal re_buf_2: unsigned(1 downto 0);
-    signal wr_buf_0: unsigned(1 downto 0);
-	signal wr_buf_1: unsigned(1 downto 0);
-	signal wr_buf_2: unsigned(1 downto 0);
-	signal wr_buf_52: unsigned(1 downto 0);
-	signal re_buf_52: unsigned(1 downto 0);
-	signal wr_buf_25: unsigned(1 downto 0);
-	signal re_buf_25: unsigned(1 downto 0);
 	
 	signal clkfb:    std_logic;
 	signal clkfx:    std_logic;
@@ -201,6 +203,18 @@ begin
 --	ram3: lab05_ram port map(clka_i=>clkfx,wea_i=>'1',addra_i=>addra3,
 --		dataa_i=>std_logic_vector(wr_buf_25),dataa_o=>dataa3,clkb_i=>fclk,
 --		web_i=>'1',addrb_i=>addrb3,datab_i=>std_logic_vector(re_buf_52),datab_o=>datab3); --mine
+	thrsh_ram: lab05_ram port map(clka_i=>fclk,wea_i=>'0',addra_i=>addra3,
+		dataa_i=>(others=>'0'),dataa_o=>dataa3,clkb_i=>clkfx,
+		web_i=>'1',addrb_i=>addrb3,datab_i=>datab3,datab_o=>open); --mine
+    uaddrb_ram: lab05_ram port map(clka_i=>fclk,wea_i=>'1',addra_i=>addra4,
+		dataa_i=>dataa4,dataa_o=>open,clkb_i=>clkfx,
+		web_i=>'0',addrb_i=>addrb4,datab_i=>(others=>'0'),datab_o=>datab4); --mine
+	wr_buf_ram: lab05_ram port map(clka_i=>fclk,wea_i=>'1',addra_i=>addra5,
+		dataa_i=>dataa5,dataa_o=>open,clkb_i=>clkfx,
+		web_i=>'0',addrb_i=>addrb5,datab_i=>(others=>'0'),datab_o=>datab5); --mine
+	re_buf_ram: lab05_ram port map(clka_i=>fclk,wea_i=>'0',addra_i=>addra6,
+		dataa_i=>(others=>'0'),dataa_o=>dataa6,clkb_i=>clkfx,
+		web_i=>'1',addrb_i=>addrb6,datab_i=>datab6,datab_o=>open); --mine
 		
 		gain <= (to_unsigned(1,7), to_unsigned(2,7), to_unsigned(3,7), to_unsigned(4,7), to_unsigned(9,7), to_unsigned(16,7), to_unsigned(32,7), to_unsigned(64,7)); --setting my gain
 		h_gain <= (to_unsigned(1,7), to_unsigned(2,7), to_unsigned(3,7), to_unsigned(4,7), to_unsigned(9,7)); --setting my gain
@@ -311,11 +325,39 @@ pio31<= pio_state;
 	process(clkfx, uaddrb, pio_count, datab, btn, thrsh, sr0, sr1, sr2)
 	begin
 	
+	
 	if rising_edge(fclk) then
 	
-	   wr_buf_0 <= wr_buf;
-	   re_buf_1 <= re_buf_0;
-	   re_buf_2 <= re_buf_1;
+	
+		---Ram buffering- Ram assigner
+		
+		case wr_buf is        --write buffer
+		  when b"00" =>
+		      web0 <= web;
+		      web1 <= '0'; --make other ram blocks unwriteable when we switch to the new one
+		      web2 <= '0';
+		      addrb0 <= std_logic_vector(uaddrb);
+		      datab_i_0 <= sr3;
+		  when b"01" =>
+		      web1 <= web;
+		      web0 <= '0';
+		      web2 <= '0';
+		      addrb1 <= std_logic_vector(uaddrb);
+		      datab_i_1 <= sr3;
+		  when b"10" =>
+		      web2 <= web;
+		      web1 <= '0';
+		      web0 <= '0';
+		      addrb2 <= std_logic_vector(uaddrb);
+		      datab_i_2 <= sr3;
+		  when others =>
+		      null;
+		end case;
+	
+	
+	   dataa4(9 downto 0) <= std_logic_vector(uaddrb);
+	
+	   dataa5(1 downto 0) <= std_logic_vector(wr_buf);
 	   
 	    if rdy = '1' then       
          web <= '1';
@@ -339,7 +381,7 @@ pio31<= pio_state;
             if timeout='1' then 
                 FSM_hgain <= hgain;                 --go to hgain mode to collect 640 samples
             end if;
-            if (unsigned(sr1) <= thrsh_lvl and unsigned(sr0) >= thrsh_lvl) then      --if we trigger or if we timeout,
+            if (unsigned(sr1) <= unsigned(dataa3(11 downto 0)) and unsigned(sr0) >= unsigned(dataa3(11 downto 0))) then      --if we trigger or if we timeout,
                 FSM_hgain <= hgain;                 --go to hgain mode to collect 640 samples
                 timeout <= '0';         --no longer timed out
                 timeout_counter <= to_unsigned(0,28);
@@ -350,7 +392,7 @@ pio31<= pio_state;
                     FSM_hgain <= no_hgain;  -- we need to trigger or timeout again to take more samples
                     uaddrb <= b"0000000000";    --reset our address
                     --Write Buffer Switching
-                    if re_buf_2 = (wr_buf + 1)mod 3 then
+                    if unsigned(dataa6(1 downto 0)) = (wr_buf + 1)mod 3 then    --dataa6 is re_buf
                         wr_buf <= (wr_buf + 2)mod 3;
                     else
                         wr_buf <= (wr_buf + 1)mod 3;
@@ -371,13 +413,68 @@ pio31<= pio_state;
                end if;       
                    
        end case;     
-       
-end if;
+      
+
+            --Horizontal Gain Buttons and Logic
+    
+        h_up_btn_0 <= h_gain_up_btn;
+        h_up_btn_1 <= h_up_btn_0;
+        h_up_btn_2 <= h_up_btn_1;
+        h_down_btn_0 <= h_gain_down_btn;
+        h_down_btn_1 <= h_down_btn_0;
+        h_down_btn_2 <= h_down_btn_1;
+        if (h_up_btn_2='1') then
+            if(h_up_btn_free='1') then
+                if (horizontal_gain_index < 4) then   --careful of size
+                    horizontal_gain_index<=horizontal_gain_index+1;
+                end if;
+               h_up_btn_free<='0';
+            end if;
+        else
+            h_up_btn_free<='1';
+        end if;
+    
+    if (h_down_btn_2='1') then
+        if(h_down_btn_free='1') then
+               if (horizontal_gain_index > 0) then
+                   horizontal_gain_index<=horizontal_gain_index-1;
+               end if;
+		    h_down_btn_free<='0';
+	    end if;
+	else
+	   h_down_btn_free<='1';
+	end if;
+	    
+    horizontal_gain<=h_gain(to_integer(horizontal_gain_index));
 	   
-	end if; 
+	  end if;     --ends rdy = 1
+	end if; --end if rising edge fclk
 	
 	
 		if rising_edge(clkfx) then --if the vga clock is rising 
+		
+		
+		
+					---Ram buffering- Ram assigner
+		
+		case re_buf is            --read buffer
+		  when b"00" =>
+		      addra0 <= addra;
+		      dataa <= dataa0;
+		  when b"01" =>
+		      addra1 <= addra;
+		      dataa <= dataa1;
+		  when b"10" =>
+		      addra1 <= addra;
+		      dataa <= dataa1;
+		  when others =>
+		      null;
+		end case;
+		
+		
+		
+		
+		
 			-- Pixel position counters
 			if (hcount>=to_unsigned(799,10)) then --rollover horizontal count
 				hcount<=(others=>'0');
@@ -414,52 +511,14 @@ end if;
 			else
 				frame<='0';
 			end if;
-					
 
-			
----Ram buffering- Ram assigner
-		
-		case wr_buf is        --write buffer
-		  when b"00" =>
-		      web0 <= web;
-		      web1 <= '0'; --make other ram blocks unwriteable when we switch to the new one
-		      web2 <= '0';
-		      addrb0 <= std_logic_vector(uaddrb);
-		      datab_i_0 <= sr3;
-		  when b"01" =>
-		      web1 <= web;
-		      web0 <= '0';
-		      web2 <= '0';
-		      addrb1 <= std_logic_vector(uaddrb);
-		      datab_i_1 <= sr3;
-		  when b"10" =>
-		      web2 <= web;
-		      web1 <= '0';
-		      web0 <= '0';
-		      addrb2 <= std_logic_vector(uaddrb);
-		      datab_i_2 <= sr3;
-		  when others =>
-		      null;
-		end case;
-		
-		case re_buf is            --read buffer
-		  when b"00" =>
-		      addra0 <= addra;
-		      dataa <= dataa0;
-		  when b"01" =>
-		      addra1 <= addra;
-		      dataa <= dataa1;
-		  when b"10" =>
-		      addra1 <= addra;
-		      dataa <= dataa1;
-		  when others =>
-		      null;
-		end case;
 
     --VGA- drawing
  
+    datab3(11 downto 0) <= std_logic_vector(thrsh_lvl);
+ 
     scaled_thrsh <= 480 - (thrsh_lvl/vertical_gain) - v_off_plus + v_off_minus;
-    scaled_samples <= to_unsigned(samples,17)/horizontal_gain;
+ --   scaled_samples <= to_unsigned(samples,17)/horizontal_gain;
  
     addra <= std_logic_vector(hcount); --we read the Nth number in ram
     scaled_vcount<= 480-(unsigned(dataa(11 downto 0 ))/vertical_gain) - v_off_plus + v_off_minus;    --We scale the 12 bit number down, so 0-4096 --> 0-455 (less than 480 vert pix),
@@ -478,20 +537,18 @@ end if;
 --        vga_draw_cnt <= vga_draw_cnt + 1;
 	
 	
+
 	
-	wr_buf_1<= wr_buf_0;
-	wr_buf_2 <= wr_buf_1;
-	
-	re_buf_0 <= re_buf_0;
+	datab6(1 downto 0) <= std_logic_vector(re_buf);
 		
 		if frame = '1' then
 		
 		    --Ram buffering- read buffer logic
 
-        if uaddrb = samples then -- =639
-            re_buf <= wr_buf_2;
+        if unsigned(datab4(9 downto 0)) = samples then -- =639
+            re_buf <= unsigned(datab5(1 downto 0)); --datab5 is wr_buf
         else
-            re_buf <= (wr_buf_2 - 1) mod 3;
+            re_buf <= (unsigned(datab5(1 downto 0)) - 1) mod 3;
         end if;
     else
         re_buf <= re_buf;
@@ -635,58 +692,6 @@ end if;
 	end if;
 	    
     vertical_gain<=gain(to_integer(vertical_gain_index));
-    
-    
-        --Horizontal Gain Buttons and Logic
-    
-        h_up_btn_0 <= h_gain_up_btn;
-        h_up_btn_1 <= h_up_btn_0;
-        h_up_btn_2 <= h_up_btn_1;
-        h_down_btn_0 <= h_gain_down_btn;
-        h_down_btn_1 <= h_down_btn_0;
-        h_down_btn_2 <= h_down_btn_1;
-        if (h_up_btn_2='1') then
-            if(h_up_btn_free='1') then
-                if (horizontal_gain_index < 4) then   --careful of size
-                    horizontal_gain_index<=horizontal_gain_index+1;
-                end if;
-               h_up_btn_free<='0';
-            end if;
-        else
-            h_up_btn_free<='1';
-        end if;
-    
-    if (h_down_btn_2='1') then
-        if(h_down_btn_free='1') then
-               if (horizontal_gain_index > 0) then
-                   horizontal_gain_index<=horizontal_gain_index-1;
-               end if;
-		    h_down_btn_free<='0';
-	    end if;
-	else
-	   h_down_btn_free<='1';
-	end if;
-	    
-    horizontal_gain<=h_gain(to_integer(horizontal_gain_index));
-
-
-if (horizontal_gain_index = to_unsigned(0, 4)) then
-        led <= "0000"; -- Binary representation of 0
-    elsif (horizontal_gain_index = to_unsigned(1, 4)) then
-        led <= "0001"; -- Binary representation of 1
-    elsif (horizontal_gain_index = to_unsigned(2, 4)) then
-        led <= "0010"; -- Binary representation of 2
-    elsif (horizontal_gain_index = to_unsigned(3, 4)) then
-        led <= "0011"; -- Binary representation of 3
-    elsif (horizontal_gain_index = to_unsigned(4, 4)) then
-        led <= "0100"; -- Binary representation of 4
-    elsif (horizontal_gain_index = to_unsigned(5, 4)) then
-        led <= "0101"; -- Binary representation of 5
-    elsif (horizontal_gain_index = to_unsigned(6, 4)) then
-        led <= "0110"; -- Binary representation of 6
-    elsif (horizontal_gain_index = to_unsigned(7, 4)) then
-        led <= "0111"; -- Binary representation of 7
-    end if;
 
 
 --Encoder Button Stuff
